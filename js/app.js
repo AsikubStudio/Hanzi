@@ -80,7 +80,7 @@ function applyTheme() {
   if (state.theme === 'auto') root.removeAttribute('data-theme');
   else root.setAttribute('data-theme', state.theme);
   const dark = state.theme === 'dark' || (state.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  $('meta[name="theme-color"]').setAttribute('content', dark ? '#0b1612' : '#123026');
+  $('meta[name="theme-color"]').setAttribute('content', dark ? '#0c1713' : '#123026');
 }
 
 function cycleTheme() {

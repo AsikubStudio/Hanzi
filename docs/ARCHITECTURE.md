@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.11)
+# BotHanzi: architektura (v0.12)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -76,6 +76,13 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Miasto lampionów (`js/city.js`) zostało usunięte, podobnie jak lampiony w głębi (próbowane w wersjach roboczych). Zostają dwa sznury lampionów na całą szerokość kafla: dni 1–7 i dni 8–14, w lekkiej perspektywie (drugi sznur jest dalej: odrobinę węższy, niżej, z mniejszymi lampionami). Szczegóły: `rowGeom` w `ui.js`. Od 14 dni dochodzą migoczące iskry.
 - Kafel serii to hero (numer serii + girlanda) oraz zwijana sekcja „Kalendarz i statystyki” (domyślnie zwinięta, stan pamiętany do końca sesji). Belka rozwijania i sekcja „Ogółem” nie mają już linii ani ciemniejszego tła, więc gradient kafla przechodzi płynnie w sekcję statystyk.
 - Service worker: `bothanzi-v12`.
+
+## Zmiany w v0.12 (paleta)
+- Ciemny motyw: tło `#0c1713`, powierzchnie `#142620` z ramką `#233d34` (rozwarstwienie: tło < karty), tekst `#f2f5f3`, tekst pomocniczy `#9cb3aa`. Różowy akcent jest bardziej koralowy: `#f0829a` (`--pink`, `--pink-bright`).
+- Główny przycisk (`.btn.primary`) ma pionowy gradient (`--btn-top`/`--btn-bot`: ciemny `#f28ba0`→`#d96b82`, jasny `#dc3f70`→`#b9264f`) i wewnętrzne rozświetlenie u góry; tekst na nim to `--on-pink` (ciemna zieleń `#0c1713` w ciemnym motywie). Przyciski na ciemnych ekranach (sesja, quiz, podsumowanie) używają `--btn-dark` i tekstu `#0c1713`.
+- Mikro-akcent złota (`--gold`, `#d9b36c`): nazwa rangi w hero oraz pełny pasek poziomu HSK (`.bar.full`).
+- Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
+- `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
 
 ## Dane kresek i licencja
 Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.

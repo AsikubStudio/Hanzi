@@ -1,5 +1,5 @@
 // Service worker: app shell w cache, działa offline. Podbij VERSION po każdej zmianie plików.
-const VERSION = 'bothanzi-v12';
+const VERSION = 'bothanzi-v13';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'css/styles.css',

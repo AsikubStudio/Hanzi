@@ -138,19 +138,19 @@ const dayWord = (n) => (n === 1 ? 'dzień' : 'dni');
 // Lampion (wspólny kształt): współrzędne lokalne, początek na środku zawieszenia.
 // lit = zapalony: różowy korpus, jasne wnętrze i poświata; zgaszony: ciemny obrys.
 function lampion(x, y, sc, lit, i) {
-  const rib = lit ? '#b83a68' : '#2f5143';
-  const cap = lit ? '#5c1f3a' : '#2a4639';
+  const rib = lit ? '#b83a68' : '#5a8a75';
+  const cap = lit ? '#5c1f3a' : '#4d7b67';
   const glow = lit ? `<circle class="lamp-halo" cx="0" cy="21" r="24" fill="url(#lampGlow)" style="--d:${(i * 0.37).toFixed(2)}s"/>` : '';
   const body = lit
     ? '<ellipse cx="0" cy="18" rx="11" ry="12" fill="#f07aa0"/><ellipse cx="0" cy="18" rx="6.2" ry="8.4" fill="#ffd9e5" opacity=".9"/>'
-    : '<ellipse cx="0" cy="18" rx="11" ry="12" fill="#10241c" stroke="#3d6454" stroke-width="1.1"/>';
+    : '<ellipse cx="0" cy="18" rx="11" ry="12" fill="#173629" stroke="#6f9f8a" stroke-width="1.2"/>';
   return `<g transform="translate(${x} ${y}) scale(${sc})"><g class="lamp${lit ? ' lit' : ''}" style="--d:${(i * 0.45).toFixed(2)}s">
     ${glow}
     <path d="M0 -6V3" stroke="${cap}" stroke-width="1" fill="none"/>
     ${body}
     <path d="M0 6V30M-6.2 7Q-9.8 18-6.2 29M6.2 7Q9.8 18 6.2 29" stroke="${rib}" stroke-width=".9" fill="none"/>
     <rect x="-6" y="3" width="12" height="3.2" rx="1.2" fill="${cap}"/><rect x="-5" y="29.5" width="10" height="3.2" rx="1.2" fill="${cap}"/>
-    <path d="M0 32.7V39" stroke="${lit ? '#f07aa0' : '#3d6454'}" stroke-width="1.1"/><circle cx="0" cy="40" r="1.5" fill="${lit ? '#ffb3cb' : '#3d6454'}"/>
+    <path d="M0 32.7V39" stroke="${lit ? '#f07aa0' : '#6f9f8a'}" stroke-width="1.1"/><circle cx="0" cy="40" r="1.5" fill="${lit ? '#ffb3cb' : '#6f9f8a'}"/>
   </g></g>`;
 }
 
@@ -329,7 +329,7 @@ export function homeView(ui) {
     return `<details class="tier" data-lv="${lv.n}" ${open ? 'open' : ''}>
       <summary>
         <span class="tier-head"><b>${lv.label}</b><span class="tier-count">${k}/${all}</span><span class="chev">${ICONS.chevron}</span></span>
-        <span class="bar" role="progressbar" aria-label="${lv.label}" aria-valuemin="0" aria-valuemax="${all}" aria-valuenow="${k}"><i style="width:${(k / all) * 100}%"></i></span>
+        <span class="bar${k === all ? ' full' : ''}" role="progressbar" aria-label="${lv.label}" aria-valuemin="0" aria-valuemax="${all}" aria-valuenow="${k}"><i style="width:${(k / all) * 100}%"></i></span>
       </summary>
       <div class="tier-body">${open ? tierBodyHTML(lv.n) : ''}</div>
     </details>`;
