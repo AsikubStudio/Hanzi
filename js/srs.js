@@ -58,3 +58,13 @@ export function hardCount() {
 export function customAsItems() {
   return state.custom.map(fromCustom);
 }
+
+// Tryb „Ucz się nowych”: nieznane znaki z jednego poziomu, w kolejności z bazy, max `size` kart.
+export function learnDeck(level, size = 20) {
+  return CHARS.filter((c) => c.hsk === level && !isKnown(c.hanzi)).slice(0, size).map(fromChar);
+}
+
+// Quiz: losowe znane znaki.
+export function quizDeck(size) {
+  return knownDeck({ size });
+}

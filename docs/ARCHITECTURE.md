@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.1)
+# BotHanzi: architektura (v0.2)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -16,8 +16,18 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Wyszukiwanie: normalizacja NFD bez tonów i ogonków; „v” traktowane jak „ü”; frazy <3 znaki nie przeszukują znaczeń (poza dokładnym trafieniem).
 - Rangi (wizualna progresja): Nasionko, Mech (10), Paproć (50), Młodnik (150), Ostoja (400), Puszcza (800), Król lasu (1500). Las w hero gęstnieje wraz z liczbą znanych znaków.
 
+## Zmiany w v0.2
+- Górny pasek z globalną wyszukiwarką (cała baza) na każdym ekranie; zakładka „Szukaj” usunięta. W Znanych dodatkowa lupka filtruje tylko znane znaki.
+- Quiz w Znanych (10/30/50/własna liczba): kolejność pinyin bez tonu, ton (przyciski ā á ǎ à a), znaczenie PL lub EN. Cyfra na końcu pinyin ustawia ton. Znaczenie: trafienie jednego ze znaczeń, słowo z wyrażenia (≥3 litery) lub jedna literówka (≥5 liter). Wynik wpływa na SRS (pełna poprawność = „znam”).
+- Fiszki: przycisk i swipe w górę „Dalej” (pominięcie bez oceny) w każdej sesji; tryb „Ucz się nowych” z Odkrywaj (Znam → znane, Trudny → trudne, Dalej).
+- Karta znaku: animowana kolejność kresek. Własny renderer: obrys kreski jako clipPath, gruba linia po medianie rysowana przez stroke-dasharray. Dane w `strokes/<kod-hex>.json`, precache w service workerze.
+- Start: usunięto „Utwórz talię ze znanych”.
+
+## Dane kresek i licencja
+Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.
+
 ## Następne kroki
 1. Pełna baza HSK 1–6 (~2500 znaków) z weryfikacją poziomów i polskich znaczeń.
-2. Kolejność pociągnięć / animacja znaków, audio.
+2. Audio; tryb ćwiczenia rysowania znaku palcem.
 3. Eksport/import postępu (JSON) i ewentualna synchronizacja.
 4. Weryfikacja iOS: instalacja z Safari, ikony, pasek stanu.

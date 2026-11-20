@@ -1,10 +1,14 @@
 import { BY_HANZI } from './data.js';
-import { state, toggleKnown, toggleHard, addCustom, removeCustom, logActivity, setTheme } from './store.js';
-import { grade, dueDeck, knownDeck, hardDeck } from './srs.js';
-import { search } from './search.js';
 import {
-  tabbarHTML, homeView, knownView, discoverView, cardsView, searchView, resultsHTML,
-  sheetView, formView, sessionView, summaryView,
+  state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logActivity, setTheme,
+} from './store.js';
+import { grade, dueDeck, knownDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
+import { search } from './search.js';
+import { gradeAnswer } from './quiz.js';
+import { mountStrokes } from './strokes.js';
+import {
+  tabbarHTML, homeView, knownView, discoverView, cardsView, resultsHTML, knownGridHTML, quizCount,
+  sheetView, formView, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
 } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -13,19 +17,24 @@ const tabbar = $('#tabbar');
 const sheetEl = $('#sheet');
 const sessionEl = $('#session');
 const toastEl = $('#toast');
+const qInput = $('#q');
+const qClear = $('#q-clear');
+const panel = $('#searchpanel');
 
 const ui = {
   tab: 'home',
   knownLevel: 0,
+  knownQuery: '',
+  knownSearchOpen: false,
+  quizSize: '10',
+  quizCustom: '15',
   openTiers: new Set(),
   tiersTouched: false,
   deckSize: 20,
   deckLevel: 0,
-  query: '',
-  results: [],
 };
 
-const VIEWS = { home: homeView, known: knownView, discover: discoverView, cards: cardsView, search: searchView };
+const VIEWS = { home: homeView, known: knownView, discover: discoverView, cards: cardsView };
 
 // ——— Router ———
 function currentTab() {
@@ -43,10 +52,28 @@ function render({ keepScroll = false } = {}) {
 
 window.addEventListener('hashchange', () => {
   if (!sheetEl.hidden) closeSheet();
+  clearSearch();
   render();
   window.scrollTo(0, 0);
   view.focus({ preventScroll: true });
 });
+
+// ——— Wyszukiwarka globalna (górny pasek) ———
+function refreshSearch() {
+  const q = qInput.value;
+  const has = q.trim() !== '';
+  panel.hidden = !has;
+  qClear.hidden = q === '';
+  panel.innerHTML = has ? resultsHTML(search(q), q) : '';
+}
+
+function clearSearch() {
+  qInput.value = '';
+  refreshSearch();
+}
+
+qInput.addEventListener('input', refreshSearch);
+qClear.addEventListener('click', () => { clearSearch(); qInput.focus(); });
 
 // ——— Motyw ———
 function applyTheme() {
@@ -77,7 +104,7 @@ function toast(msg) {
 let lastFocus = null;
 
 function openSheet(html) {
-  lastFocus = document.activeElement;
+  if (sheetEl.hidden) lastFocus = document.activeElement;
   sheetEl.innerHTML = html;
   sheetEl.hidden = false;
   requestAnimationFrame(() => sheetEl.classList.add('open'));
@@ -86,24 +113,31 @@ function openSheet(html) {
 
 function closeSheet() {
   sheetEl.classList.remove('open');
-  setTimeout(() => { sheetEl.hidden = true; sheetEl.innerHTML = ''; }, 180);
+  setTimeout(() => { if (!sheetEl.classList.contains('open')) { sheetEl.hidden = true; sheetEl.innerHTML = ''; } }, 180);
   lastFocus?.focus?.({ preventScroll: true });
 }
 
 function openChar(h) {
   const c = BY_HANZI.get(h);
-  if (c) openSheet(sheetView(c));
+  if (!c) return;
+  openSheet(sheetView(c));
+  const box = sheetEl.querySelector('.stroke-box');
+  if (box) mountStrokes(box, h);
 }
 
-// ——— Sesja fiszek ———
+// ——— Sesja fiszek (review / learn) ———
 let S = null;
 
-function startSession(deck, emptyMsg) {
+function startSession(deck, emptyMsg, mode = 'review') {
   if (!deck.length) return toast(emptyMsg);
-  S = { deck, i: 0, flipped: false, hit: 0, miss: [], done: false };
+  S = { mode, deck, i: 0, flipped: false, hit: 0, miss: [], skipped: 0, done: false };
+  openSessionScreen();
+  drawSession();
+}
+
+function openSessionScreen() {
   sessionEl.hidden = false;
   document.body.classList.add('in-session');
-  drawSession();
 }
 
 function drawSession() {
@@ -113,18 +147,28 @@ function drawSession() {
 
 function endSession() {
   S = null;
+  Q = null;
   sessionEl.hidden = true;
   sessionEl.innerHTML = '';
   document.body.classList.remove('in-session');
   render({ keepScroll: true });
 }
 
-function answer(ok) {
+// dir: 'yes' | 'no' | 'skip'
+function answer(dir) {
   if (!S || S.done) return;
   const c = S.deck[S.i];
-  grade(c.key, ok);
-  logActivity();
-  if (ok) S.hit++; else S.miss.push(c);
+  if (dir === 'skip') {
+    S.skipped++;
+  } else if (S.mode === 'learn') {
+    if (dir === 'yes') { if (!isKnown(c.hanzi)) toggleKnown(c.hanzi); S.hit++; }
+    else { if (!isHard(c.hanzi)) toggleHard(c.hanzi); S.miss.push(c); }
+    logActivity();
+  } else {
+    grade(c.key, dir === 'yes');
+    logActivity();
+    if (dir === 'yes') S.hit++; else S.miss.push(c);
+  }
   S.flipped = false;
   S.i++;
   if (S.i >= S.deck.length) S.done = true;
@@ -134,42 +178,42 @@ function answer(ok) {
 function bindCard() {
   const card = $('#card');
   if (!card) return;
-  let startX = 0, dx = 0, drag = false, moved = false;
+  let sx = 0, sy = 0, dx = 0, dy = 0, drag = false, moved = false;
 
-  const flip = () => {
-    S.flipped = !S.flipped;
-    card.classList.toggle('is-flipped', S.flipped);
+  const flip = () => { S.flipped = !S.flipped; card.classList.toggle('is-flipped', S.flipped); };
+  const reset = () => {
+    card.style.transform = '';
+    card.dataset.dir = '';
+    card.style.setProperty('--pull', 0);
+  };
+  const fling = (dir, x, y, rot) => {
+    card.style.transition = 'transform .18s ease-in, opacity .18s';
+    card.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg)`;
+    card.style.opacity = '0';
+    setTimeout(() => answer(dir), 170);
   };
 
   card.addEventListener('pointerdown', (e) => {
-    drag = true; moved = false; startX = e.clientX; dx = 0;
+    drag = true; moved = false; sx = e.clientX; sy = e.clientY; dx = 0; dy = 0;
     card.setPointerCapture(e.pointerId);
     card.classList.add('dragging');
   });
   card.addEventListener('pointermove', (e) => {
     if (!drag) return;
-    dx = e.clientX - startX;
-    if (Math.abs(dx) > 6) moved = true;
-    card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
-    card.dataset.dir = dx > 24 ? 'yes' : dx < -24 ? 'no' : '';
-    card.style.setProperty('--pull', Math.min(1, Math.abs(dx) / 110));
+    dx = e.clientX - sx; dy = e.clientY - sy;
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) moved = true;
+    const up = dy < -30 && Math.abs(dy) > Math.abs(dx);
+    card.style.transform = up ? `translateY(${dy}px)` : `translateX(${dx}px) rotate(${dx / 22}deg)`;
+    card.dataset.dir = up ? 'skip' : dx > 24 ? 'yes' : dx < -24 ? 'no' : '';
+    card.style.setProperty('--pull', Math.min(1, (up ? Math.abs(dy) : Math.abs(dx)) / 110));
   });
   const release = () => {
     if (!drag) return;
     drag = false;
     card.classList.remove('dragging');
-    if (Math.abs(dx) > 100) {
-      const ok = dx > 0;
-      card.style.transition = 'transform .18s ease-in, opacity .18s';
-      card.style.transform = `translateX(${ok ? 520 : -520}px) rotate(${ok ? 18 : -18}deg)`;
-      card.style.opacity = '0';
-      setTimeout(() => answer(ok), 170);
-    } else {
-      card.style.transform = '';
-      card.dataset.dir = '';
-      card.style.setProperty('--pull', 0);
-      if (!moved) flip();
-    }
+    if (dy < -100 && Math.abs(dy) > Math.abs(dx)) fling('skip', 0, -520, 0);
+    else if (Math.abs(dx) > 100) { const ok = dx > 0; fling(ok ? 'yes' : 'no', ok ? 520 : -520, 0, ok ? 18 : -18); }
+    else { reset(); if (!moved) flip(); }
   };
   card.addEventListener('pointerup', release);
   card.addEventListener('pointercancel', release);
@@ -178,18 +222,79 @@ function bindCard() {
   });
 }
 
+// ——— Quiz: pinyin → ton → znaczenie ———
+let Q = null;
+
+function startQuiz(deck) {
+  if (!deck.length) return toast('Najpierw dodaj znane znaki.');
+  Q = { deck, i: 0, step: 'ask', tone: null, pts: 0, full: 0, miss: [], last: null, done: false };
+  openSessionScreen();
+  drawQuiz();
+}
+
+function drawQuiz() {
+  sessionEl.innerHTML = Q.done ? quizSummaryView(Q) : Q.step === 'ask' ? quizAskView(Q) : quizResultView(Q);
+  if (Q.done) return;
+  if (Q.step === 'ask') $('#qz-py')?.focus({ preventScroll: true });
+  else $('#qz-next')?.focus({ preventScroll: true });
+}
+
+function setTone(t) {
+  Q.tone = t;
+  sessionEl.querySelectorAll('.tone').forEach((b) => b.setAttribute('aria-checked', String(Number(b.dataset.t) === t)));
+}
+
+function quizCheck() {
+  const c = Q.deck[Q.i];
+  const res = gradeAnswer({
+    py: $('#qz-py').value,
+    tone: Q.tone,
+    meaning: $('#qz-mean').value,
+  }, c);
+  grade(c.key, res.full);
+  logActivity();
+  Q.pts += res.pts;
+  if (res.full) Q.full++; else Q.miss.push(c);
+  Q.last = { ...res, item: c };
+  Q.step = 'result';
+  drawQuiz();
+}
+
+function quizNext() {
+  Q.i++;
+  Q.tone = null;
+  Q.step = 'ask';
+  if (Q.i >= Q.deck.length) Q.done = true;
+  drawQuiz();
+}
+
+// ——— Klawiatura ———
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!sheetEl.hidden) closeSheet();
-    else if (S) endSession();
+    else if (S || Q) endSession();
+    else if (qInput.value) clearSearch();
+    return;
   }
   if (S && !S.done) {
-    if (e.key === 'ArrowRight') answer(true);
-    if (e.key === 'ArrowLeft') answer(false);
+    if (e.key === 'ArrowRight') answer('yes');
+    if (e.key === 'ArrowLeft') answer('no');
+    if (e.key === 'ArrowUp') answer('skip');
+  }
+  if (Q && Q.step === 'ask' && e.key === 'Enter' && e.target.id === 'qz-py') {
+    e.preventDefault();
+    $('#qz-mean').focus();
   }
 });
 
 // ——— Akcje (delegacja zdarzeń) ———
+const afterToggle = (h, msg) => {
+  toast(msg);
+  openChar(h);
+  refreshSearch();
+  render({ keepScroll: true });
+};
+
 const ACTIONS = {
   open: (el) => openChar(el.dataset.h),
   'close-sheet': closeSheet,
@@ -197,30 +302,43 @@ const ACTIONS = {
   'toggle-known': (el) => {
     const h = el.dataset.h;
     toggleKnown(h);
-    toast(state.known[h] ? `Dodano ${h} do znanych` : `Usunięto ${h} ze znanych`);
-    openChar(h);
-    render({ keepScroll: true });
+    afterToggle(h, state.known[h] ? `Dodano ${h} do znanych` : `Usunięto ${h} ze znanych`);
   },
   'toggle-hard': (el) => {
     const h = el.dataset.h;
     toggleHard(h);
-    toast(state.hard.includes(h) ? `Dodano ${h} do trudnych` : `Usunięto ${h} z trudnych`);
-    openChar(h);
-    render({ keepScroll: true });
+    afterToggle(h, isHard(h) ? `Dodano ${h} do trudnych` : `Usunięto ${h} z trudnych`);
   },
+  'replay-strokes': (el) => el.closest('.stroke-box')?._play?.(),
   'known-level': (el) => { ui.knownLevel = Number(el.dataset.lv); render({ keepScroll: true }); },
+  'known-search': () => {
+    ui.knownSearchOpen = !ui.knownSearchOpen;
+    if (!ui.knownSearchOpen) ui.knownQuery = '';
+    render({ keepScroll: true });
+    if (ui.knownSearchOpen) $('#kq')?.focus({ preventScroll: true });
+  },
+  'quiz-size': (el) => { ui.quizSize = el.dataset.n; render({ keepScroll: true }); },
+  'start-quiz': () => startQuiz(quizDeck(quizCount(ui))),
+  'quiz-tone': (el) => setTone(Number(el.dataset.t)),
+  'quiz-next': quizNext,
+  'quiz-retry': () => startQuiz(Q.miss),
+  'quiz-to-hard': () => {
+    Q.miss.forEach((c) => { if (!isHard(c.hanzi)) toggleHard(c.hanzi); });
+    toast('Dodano błędne znaki do trudnych');
+  },
   'deck-level': (el) => { ui.deckLevel = Number(el.dataset.lv); render({ keepScroll: true }); },
   'deck-size': (el) => { ui.deckSize = Number(el.dataset.n); render({ keepScroll: true }); },
   'study-known': () => startSession(knownDeck({ level: ui.deckLevel || null, size: ui.deckSize }), 'Brak znanych znaków w tym poziomie.'),
   'study-due': () => startSession(dueDeck(), 'Nic do powtórki na dziś.'),
   'study-hard': () => startSession(hardDeck(), 'Dodaj najpierw trudne fiszki.'),
+  'learn-tier': (el) => startSession(learnDeck(Number(el.dataset.lv)), 'Wszystkie znaki z tego poziomu już znasz.', 'learn'),
   'new-card': () => openSheet(formView()),
   'del-custom': (el) => { removeCustom(el.dataset.id); toast('Usunięto fiszkę'); render({ keepScroll: true }); },
-  answer: (el) => answer(el.dataset.ok === '1'),
+  answer: (el) => answer(el.dataset.dir),
   'end-session': endSession,
   'retry-missed': () => {
     const deck = S.miss;
-    S = { deck, i: 0, flipped: false, hit: 0, miss: [], done: false };
+    S = { mode: S.mode, deck, i: 0, flipped: false, hit: 0, miss: [], skipped: 0, done: false };
     drawSession();
   },
 };
@@ -233,6 +351,11 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('submit', (e) => {
+  if (e.target.id === 'qz-form') {
+    e.preventDefault();
+    quizCheck();
+    return;
+  }
   if (e.target.id !== 'card-form') return;
   e.preventDefault();
   const f = Object.fromEntries(new FormData(e.target));
@@ -244,12 +367,20 @@ document.addEventListener('submit', (e) => {
   render({ keepScroll: true });
 });
 
-// Wyszukiwanie: aktualizujemy tylko listę wyników, żeby nie gubić fokusu w polu.
 document.addEventListener('input', (e) => {
-  if (e.target.id !== 'q') return;
-  ui.query = e.target.value;
-  ui.results = search(ui.query);
-  $('#results').innerHTML = resultsHTML(ui.results, ui.query);
+  const id = e.target.id;
+  if (id === 'kq') {
+    ui.knownQuery = e.target.value;
+    $('#known-grid').innerHTML = knownGridHTML(ui);
+  } else if (id === 'quiz-n') {
+    ui.quizCustom = e.target.value;
+    const btn = $('[data-act="start-quiz"]');
+    if (btn) btn.textContent = `Zacznij quiz (${quizCount(ui)})`;
+  } else if (id === 'qz-py') {
+    // Cyfra na końcu (np. „ma3”) ustawia ton, a pole zostaje z samą sylabą.
+    const m = e.target.value.match(/^(.*?)([0-5])$/);
+    if (m && Q) { e.target.value = m[1]; setTone(m[2] === '0' ? 5 : Number(m[2])); }
+  }
 });
 
 // <details> nie bąbelkuje zdarzenia toggle, więc łapiemy je w fazie przechwytywania.

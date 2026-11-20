@@ -1,14 +1,15 @@
 // Widoki jako funkcje zwracające HTML. Zdarzenia obsługuje app.js (delegacja po data-act).
-import { CHARS, LEVELS } from './data.js';
+import { CHARS, LEVELS, BY_HANZI } from './data.js';
 import { state, isKnown, isHard, streak } from './store.js';
 import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
-import { BY_HANZI } from './data.js';
+import { search } from './search.js';
+import { toneOf, TONE_LABEL } from './quiz.js';
 
 export const esc = (s = '') =>
   String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
-const svg = (d, extra = '') =>
-  `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}${extra}</svg>`;
+const svg = (d) =>
+  `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 
 export const ICONS = {
   home: svg('<path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/>'),
@@ -18,19 +19,15 @@ export const ICONS = {
   search: svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
   close: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
-  theme: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M5 19l1.4-1.4M17.6 6.4L19 5"/>'),
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
-  back: svg('<path d="M15 5l-7 7 7 7"/>'),
+  check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
 };
-
-const LOGO = `<svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><g id="ant"><path d="M27 33C22 27 20 21 18 11"/><path d="M23 25L12 21"/><path d="M20 17L20 8"/><path d="M25 29L16 30"/></g><use href="#ant" transform="translate(64 0) scale(-1 1)"/></g><path d="M25 35Q32 30 39 35L32 56Z" fill="currentColor" opacity=".55"/></svg>`;
 
 export const TABS = [
   ['home', 'Start'],
   ['known', 'Znane'],
   ['discover', 'Odkrywaj'],
   ['cards', 'Fiszki'],
-  ['search', 'Szukaj'],
 ];
 
 export function tabbarHTML(active) {
@@ -91,7 +88,7 @@ const tile = (c, locked = false) =>
     <span class="hz">${esc(c.hanzi)}</span><span class="py">${esc(c.pinyin)}</span>
   </button>`;
 
-const header = (title, right = '') => `<header class="top"><h1>${title}</h1>${right}</header>`;
+const header = (title, right = '') => `<header class="top"><h1>${title}</h1><div class="top-actions">${right}</div></header>`;
 
 // ——— Start ———
 export function homeView() {
@@ -103,9 +100,9 @@ export function homeView() {
 
   const cta = due > 0
     ? `<button class="btn primary" data-act="study-due">Powtórka na dziś (${due})</button>`
-    : known > 0
-      ? `<a class="btn primary" href="#/cards">Utwórz talię ze znanych</a>`
-      : `<a class="btn primary" href="#/discover">Odkryj pierwsze znaki</a>`;
+    : known === 0
+      ? `<a class="btn primary" href="#/discover">Odkryj pierwsze znaki</a>`
+      : '';
 
   const ladder = LEVELS.map((lv) => {
     const all = CHARS.filter((c) => c.hsk === lv.n).length;
@@ -118,8 +115,7 @@ export function homeView() {
   }).join('');
 
   return `
-    <header class="top brand">${LOGO}<span class="wordmark">BotHanzi</span>
-      <button class="icon-btn" type="button" data-act="theme" aria-label="Zmień motyw">${ICONS.theme}</button></header>
+    <h1 class="sr-only">BotHanzi</h1>
     <section class="hero">
       ${forestSVG(known)}
       <div class="hero-text">
@@ -129,7 +125,7 @@ export function homeView() {
         <p class="hero-next">${r.next ? `${r.left} do rangi „${r.next}”` : 'Najwyższa ranga osiągnięta'}</p>
       </div>
     </section>
-    <div class="cta-row">${cta}</div>
+    ${cta ? `<div class="cta-row">${cta}</div>` : ''}
     <section class="stats" aria-label="Statystyki">
       <div class="stat"><b>${known}</b><span>znane</span></div>
       <div class="stat"><b>${due}</b><span>do powtórki</span></div>
@@ -142,34 +138,82 @@ export function homeView() {
 }
 
 // ——— Znane ———
+export const QUIZ_SIZES = ['10', '30', '50', 'custom'];
+
+export function quizCount(ui) {
+  const kc = knownCount();
+  if (!kc) return 0;
+  if (ui.quizSize === 'custom') return Math.min(kc, Math.max(1, parseInt(ui.quizCustom, 10) || 1));
+  return Math.min(kc, Number(ui.quizSize));
+}
+
+export function knownGridHTML(ui) {
+  let list = ui.knownQuery.trim()
+    ? search(ui.knownQuery).filter((c) => isKnown(c.hanzi))
+    : CHARS.filter((c) => isKnown(c.hanzi));
+  if (ui.knownLevel) list = list.filter((c) => c.hsk === ui.knownLevel);
+  if (!list.length) {
+    return `<div class="empty small"><p>${ui.knownQuery.trim() ? `Wśród znanych nie ma wyników dla „${esc(ui.knownQuery)}”.` : 'Brak znanych znaków na tym poziomie.'}</p></div>`;
+  }
+  return `<div class="grid">${list.map((c) => tile(c)).join('')}</div>`;
+}
+
 export function knownView(ui) {
-  const lv = ui.knownLevel;
-  const list = CHARS.filter((c) => isKnown(c.hanzi) && (!lv || c.hsk === lv));
+  const kc = knownCount();
   const levels = LEVELS.filter((l) => knownCount(l.n) > 0);
-  const chips = [chip('Wszystkie', !lv, 'known-level', 'data-lv="0"'),
-    ...levels.map((l) => chip(l.label, lv === l.n, 'known-level', `data-lv="${l.n}"`))].join('');
+  const chips = [chip('Wszystkie', !ui.knownLevel, 'known-level', 'data-lv="0"'),
+    ...levels.map((l) => chip(l.label, ui.knownLevel === l.n, 'known-level', `data-lv="${l.n}"`))].join('');
 
-  const body = knownCount() === 0
-    ? `<div class="empty"><p>Tu pojawią się znaki, które już znasz.</p><a class="btn" href="#/discover">Przejdź do Odkrywaj</a></div>`
-    : `<div class="grid">${list.map((c) => tile(c)).join('')}</div>`;
+  if (!kc) {
+    return `${header('Znane znaki')}
+      <div class="empty"><p>Tu pojawią się znaki, które już znasz.</p><a class="btn" href="#/discover">Przejdź do Odkrywaj</a></div>`;
+  }
 
-  return `${header('Znane znaki', `<span class="count">${knownCount()}</span>`)}
-    ${knownCount() ? `<div class="chips" role="group" aria-label="Filtr poziomu">${chips}</div>` : ''}
-    ${body}`;
+  const sizeChips = QUIZ_SIZES.map((n) =>
+    chip(n === 'custom' ? 'Własna' : n, ui.quizSize === n, 'quiz-size', `data-n="${n}"`)).join('');
+
+  const lupa = `<button class="icon-btn${ui.knownSearchOpen ? ' on' : ''}" type="button" data-act="known-search" aria-pressed="${ui.knownSearchOpen}" aria-label="Szukaj wśród znanych">${ICONS.search}</button>`;
+
+  return `${header('Znane znaki', `<span class="count">${kc}</span>${lupa}`)}
+    ${ui.knownSearchOpen ? `<div class="searchbox inline">${ICONS.search}
+      <input id="kq" type="search" inputmode="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+        placeholder="Szukaj wśród znanych" value="${esc(ui.knownQuery)}" aria-label="Szukaj wśród znanych znaków"></div>` : ''}
+    <section class="panel quiz-setup">
+      <h2>Odpytaj się</h2>
+      <p class="muted">Podaj pinyin, ton i znaczenie znaków, które już znasz.</p>
+      <div class="chips" role="group" aria-label="Liczba znaków w quizie">${sizeChips}</div>
+      ${ui.quizSize === 'custom' ? `<label class="num">Liczba znaków (1–${kc})
+        <input id="quiz-n" type="number" inputmode="numeric" min="1" max="${kc}" value="${esc(ui.quizCustom)}"></label>` : ''}
+      <div class="btn-row"><button class="btn primary" type="button" data-act="start-quiz">Zacznij quiz (${quizCount(ui)})</button></div>
+    </section>
+    <div class="chips" role="group" aria-label="Filtr poziomu">${chips}</div>
+    <div id="known-grid">${knownGridHTML(ui)}</div>`;
 }
 
 // ——— Odkrywaj ———
+function tierState(i) {
+  const lv = LEVELS[i];
+  const all = CHARS.filter((c) => c.hsk === lv.n);
+  if (!all.length) return null;
+  const prev = LEVELS.slice(0, i).reverse().find((l) => CHARS.some((c) => c.hsk === l.n));
+  const prevRatio = prev ? knownCount(prev.n) / CHARS.filter((c) => c.hsk === prev.n).length : 1;
+  const todo = all.filter((c) => !isKnown(c.hanzi));
+  return { lv, all, prev, todo, k: all.length - todo.length, locked: Boolean(prev) && prevRatio < 0.5 };
+}
+
+// Poziom, od którego warto zacząć naukę: pierwszy odblokowany z nieznanymi znakami.
+export function nextLearnLevel() {
+  const states = LEVELS.map((_, i) => tierState(i)).filter(Boolean);
+  return (states.find((t) => !t.locked && t.todo.length) || states.find((t) => t.todo.length))?.lv.n ?? null;
+}
+
 export function discoverView(ui) {
-  const tiers = LEVELS.map((lv, i) => {
-    const all = CHARS.filter((c) => c.hsk === lv.n);
-    if (!all.length) return '';
-    const prev = i > 0 ? LEVELS.slice(0, i).reverse().find((l) => CHARS.some((c) => c.hsk === l.n)) : null;
-    const prevAll = prev ? CHARS.filter((c) => c.hsk === prev.n) : [];
-    const prevRatio = prev ? knownCount(prev.n) / prevAll.length : 1;
-    const locked = prev && prevRatio < 0.5;
-    const todo = all.filter((c) => !isKnown(c.hanzi));
-    const k = all.length - todo.length;
-    const open = ui.openTiers.has(lv.n) || (!ui.tiersTouched && !locked && todo.length > 0 && i === firstOpenTier());
+  const next = nextLearnLevel();
+  const tiers = LEVELS.map((_, i) => {
+    const t = tierState(i);
+    if (!t) return '';
+    const { lv, todo, k, locked, prev, all } = t;
+    const open = ui.openTiers.has(lv.n) || (!ui.tiersTouched && lv.n === next);
     return `<details class="tier${locked ? ' is-locked' : ''}" data-lv="${lv.n}" ${open ? 'open' : ''}>
       <summary>
         <span class="tier-title"><b>${lv.label}</b><em>${lv.name}</em></span>
@@ -177,16 +221,16 @@ export function discoverView(ui) {
       </summary>
       ${locked ? `<p class="hint">Odblokuje się po opanowaniu połowy znaków z ${prev.label}. Możesz je jednak podejrzeć.</p>` : ''}
       ${todo.length
-        ? `<div class="grid">${todo.map((c) => tile(c, locked)).join('')}</div>`
+        ? `<div class="grid">${todo.map((c) => tile(c, locked)).join('')}</div>
+           <div class="btn-row"><button class="btn small" type="button" data-act="learn-tier" data-lv="${lv.n}">Ucz się tych znaków (${Math.min(20, todo.length)})</button></div>`
         : '<p class="hint">Wszystkie znaki z tego poziomu masz już w Znanych.</p>'}
     </details>`;
   }).join('');
-  return `${header('Do odkrycia')}<div class="tiers">${tiers}</div>`;
-}
 
-function firstOpenTier() {
-  const lv = LEVELS.find((l) => CHARS.some((c) => c.hsk === l.n && !isKnown(c.hanzi)));
-  return lv ? lv.n - 1 : -1;
+  const learn = next
+    ? `<button class="btn primary" type="button" data-act="learn-tier" data-lv="${next}">Ucz się nowych znaków</button>`
+    : '';
+  return `${header('Do odkrycia')}${learn ? `<div class="cta-row">${learn}</div>` : ''}<div class="tiers">${tiers}</div>`;
 }
 
 // ——— Fiszki ———
@@ -228,20 +272,9 @@ export function cardsView(ui) {
     </section>`;
 }
 
-// ——— Szukaj ———
-export function searchView(ui) {
-  return `${header('Szukaj')}
-    <div class="searchbox">${ICONS.search}
-      <input id="q" type="search" inputmode="search" autocomplete="off" autocapitalize="off" spellcheck="false"
-        placeholder="ma, woda, tree, 鹿" value="${esc(ui.query)}" aria-label="Szukaj znaku">
-    </div>
-    <div id="results" aria-live="polite">${resultsHTML(ui.results, ui.query)}</div>`;
-}
-
+// ——— Wyniki wyszukiwania (panel pod górnym paskiem) ———
 export function resultsHTML(list, query) {
-  if (!query.trim()) {
-    return `<div class="empty small"><p>Wpisz pinyin bez tonów (ma), polskie albo angielskie znaczenie, lub sam znak.</p></div>`;
-  }
+  if (!query.trim()) return '';
   if (!list.length) {
     return `<div class="empty small"><p>Brak wyników dla „${esc(query)}”. Spróbuj krótszej frazy albo innego języka.</p></div>`;
   }
@@ -261,7 +294,7 @@ export function sheetView(c) {
   return `<div class="sheet-backdrop" data-act="close-sheet"></div>
     <section class="sheet" role="dialog" aria-modal="true" aria-label="Znak ${esc(c.hanzi)}">
       <div class="grab" aria-hidden="true"></div>
-      <div class="sheet-hanzi">${esc(c.hanzi)}</div>
+      <div class="stroke-box" data-h="${esc(c.hanzi)}"><div class="sheet-hanzi" lang="zh">${esc(c.hanzi)}</div></div>
       <p class="sheet-py">${esc(c.pinyin)}</p>
       <p class="pill">${lv ? lv.label : ''}</p>
       <dl class="meanings"><div><dt>Polski</dt><dd>${esc(c.pl)}</dd></div><div><dt>English</dt><dd>${esc(c.en)}</dd></div></dl>
@@ -288,8 +321,14 @@ export function formView() {
 }
 
 // ——— Sesja fiszek ———
+const MODES = {
+  review: { left: 'Jeszcze raz', tip: 'Przesuń w prawo, gdy znasz, w lewo, gdy nie, w górę, żeby pominąć.' },
+  learn: { left: 'Trudny', tip: 'Przesuń w prawo, żeby dodać do znanych, w lewo, do trudnych, w górę, żeby pominąć.' },
+};
+
 export function sessionView(S) {
   const c = S.deck[S.i];
+  const m = MODES[S.mode];
   const pct = (S.i / S.deck.length) * 100;
   return `<div class="session-top">
       <button class="icon-btn" data-act="end-session" aria-label="Zakończ sesję">${ICONS.close}</button>
@@ -306,25 +345,102 @@ export function sessionView(S) {
           ${c.note ? `<p class="card-note">${esc(c.note)}</p>` : ''}
         </div>
         <p class="card-hint">Dotknij, aby odkryć</p>
-        <span class="stamp stamp-yes">Znam</span><span class="stamp stamp-no">Jeszcze raz</span>
+        <span class="stamp stamp-yes">Znam</span><span class="stamp stamp-no">${m.left}</span><span class="stamp stamp-skip">Dalej</span>
       </div>
     </div>
     <div class="session-actions">
-      <button class="btn miss" data-act="answer" data-ok="0">Jeszcze raz</button>
-      <button class="btn hit" data-act="answer" data-ok="1">Znam</button>
+      <button class="btn miss" data-act="answer" data-dir="no">${m.left}</button>
+      <button class="btn skip" data-act="answer" data-dir="skip">Dalej</button>
+      <button class="btn hit" data-act="answer" data-dir="yes">Znam</button>
     </div>
-    <p class="session-tip">Przesuń kartę w prawo, gdy znasz, w lewo, gdy nie.</p>`;
+    <p class="session-tip">${m.tip}</p>`;
 }
 
 export function summaryView(S) {
-  const total = S.hit + S.miss.length;
+  const graded = S.hit + S.miss.length;
+  const learn = S.mode === 'learn';
+  const lines = learn
+    ? [`Dodano do znanych: ${S.hit}`, `Dodano do trudnych: ${S.miss.length}`]
+    : [S.miss.length ? `Do powtórki zostało ${S.miss.length}.` : graded ? 'Wszystko poszło dobrze.' : 'Nic nie oceniono.'];
+  if (S.skipped) lines.push(`Pominięte: ${S.skipped}`);
   return `<div class="session-top"><button class="icon-btn" data-act="end-session" aria-label="Zamknij">${ICONS.close}</button></div>
     <div class="summary">
-      <p class="summary-score">${S.hit}<span>/${total}</span></p>
-      <p class="summary-line">${S.miss.length ? `Do powtórki zostało ${S.miss.length}.` : 'Wszystko poszło dobrze.'}</p>
+      ${learn ? '' : `<p class="summary-score">${S.hit}<span>/${graded}</span></p>`}
+      ${lines.map((l) => `<p class="summary-line">${l}</p>`).join('')}
       <div class="btn-col">
-        ${S.miss.length ? '<button class="btn primary" data-act="retry-missed">Powtórz błędne</button>' : ''}
-        <button class="btn ${S.miss.length ? '' : 'primary'}" data-act="end-session">Zamknij</button>
+        ${!learn && S.miss.length ? '<button class="btn primary" data-act="retry-missed">Powtórz błędne</button>' : ''}
+        <button class="btn ${!learn && S.miss.length ? '' : 'primary'}" data-act="end-session">Zamknij</button>
+      </div>
+    </div>`;
+}
+
+// ——— Quiz: pinyin → ton → znaczenie ———
+const TONE_GLYPH = { 1: 'ā', 2: 'á', 3: 'ǎ', 4: 'à', 5: 'a' };
+
+export function quizAskView(Q) {
+  const c = Q.deck[Q.i];
+  const pct = (Q.i / Q.deck.length) * 100;
+  const tones = [1, 2, 3, 4, 5].map((t) =>
+    `<button class="tone" type="button" data-act="quiz-tone" data-t="${t}" role="radio" aria-checked="${Q.tone === t}" aria-label="${TONE_LABEL[t]}">
+      <span class="tone-g">${TONE_GLYPH[t]}</span><span class="tone-n">${t === 5 ? 'lekki' : t}</span></button>`).join('');
+  return `<div class="session-top">
+      <button class="icon-btn" data-act="end-session" aria-label="Zakończ quiz">${ICONS.close}</button>
+      <div class="bar on-dark" role="progressbar" aria-valuemin="0" aria-valuemax="${Q.deck.length}" aria-valuenow="${Q.i}"><i style="width:${pct}%"></i></div>
+      <span class="session-n">${Q.i + 1}/${Q.deck.length}</span>
+    </div>
+    <div class="stage quiz-stage"><div class="quiz-hz" lang="zh">${esc(c.hanzi)}</div></div>
+    <form class="quiz-form" id="qz-form" autocomplete="off">
+      <label>1. Pinyin bez tonu
+        <input id="qz-py" name="py" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="np. ma">
+      </label>
+      <div class="field"><span id="tone-label">2. Ton</span>
+        <div class="tones" role="radiogroup" aria-labelledby="tone-label">${tones}</div>
+      </div>
+      <label>3. Znaczenie (po polsku lub angielsku)
+        <input id="qz-mean" name="meaning" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="np. koń">
+      </label>
+      <button class="btn primary" type="submit">Sprawdź</button>
+    </form>`;
+}
+
+export function quizResultView(Q) {
+  const r = Q.last;
+  const c = r.item;
+  const t = toneOf(c.pinyin);
+  const plain = c.pinyin.normalize('NFD').replace(/[̀-ͯ]/g, '').normalize('NFC');
+  const row = (label, part, yours, right) => `<li class="qrow ${part.ok ? 'ok' : 'bad'}">
+      <span class="qmark">${part.ok ? ICONS.check : ICONS.close}<span class="sr-only">${part.ok ? 'Dobrze' : 'Błąd'}</span></span>
+      <span class="qbody"><b>${label}</b><small>Twoja odpowiedź: ${yours ? esc(yours) : 'brak'}${part.ok ? '' : `<br>Poprawnie: ${esc(right)}`}</small></span></li>`;
+  const last = Q.i + 1 >= Q.deck.length;
+  return `<div class="session-top">
+      <button class="icon-btn" data-act="end-session" aria-label="Zakończ quiz">${ICONS.close}</button>
+      <div class="bar on-dark" role="progressbar" aria-valuemin="0" aria-valuemax="${Q.deck.length}" aria-valuenow="${Q.i + 1}"><i style="width:${((Q.i + 1) / Q.deck.length) * 100}%"></i></div>
+      <span class="session-n">${Q.i + 1}/${Q.deck.length}</span>
+    </div>
+    <div class="stage quiz-stage">
+      <div class="quiz-hz small" lang="zh">${esc(c.hanzi)}</div>
+      <p class="quiz-answer">${esc(c.pinyin)}</p>
+      <p class="quiz-meaning">${esc(c.pl)} · ${esc(c.en)}</p>
+    </div>
+    <ul class="qrows">
+      ${row('Pinyin', r.py, r.py.val, plain)}
+      ${row('Ton', r.tone, r.tone.val ? TONE_LABEL[r.tone.val] : '', TONE_LABEL[t])}
+      ${row('Znaczenie', r.meaning, r.meaning.val, `${c.pl}; ${c.en}`)}
+    </ul>
+    <div class="quiz-form"><button class="btn primary" type="button" data-act="quiz-next" id="qz-next">${last ? 'Zobacz wynik' : 'Dalej'}</button></div>`;
+}
+
+export function quizSummaryView(Q) {
+  const max = Q.deck.length * 3;
+  return `<div class="session-top"><button class="icon-btn" data-act="end-session" aria-label="Zamknij">${ICONS.close}</button></div>
+    <div class="summary">
+      <p class="summary-score">${Q.full}<span>/${Q.deck.length}</span></p>
+      <p class="summary-line">znaków w pełni poprawnie</p>
+      <p class="summary-line">Punkty: ${Q.pts} z ${max}</p>
+      ${Q.miss.length ? `<ul class="miss-list" aria-label="Znaki do powtórki">${Q.miss.map((c) => `<li><span class="hz-sm" lang="zh">${esc(c.hanzi)}</span><span>${esc(c.pinyin)}</span></li>`).join('')}</ul>` : ''}
+      <div class="btn-col">
+        ${Q.miss.length ? '<button class="btn primary" data-act="quiz-retry">Powtórz błędne</button><button class="btn" data-act="quiz-to-hard">Dodaj błędne do trudnych</button>' : ''}
+        <button class="btn ${Q.miss.length ? '' : 'primary'}" data-act="end-session">Zamknij</button>
       </div>
     </div>`;
 }

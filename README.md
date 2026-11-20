@@ -19,5 +19,16 @@ Po zmianie plików podbij `VERSION` w `sw.js`, żeby użytkownicy dostali świe�
 - `js/store.js` — stan w localStorage (znane, trudne, własne fiszki, SRS, seria)
 - `js/srs.js` — Leitner (5 pudełek), generatory talii
 - `js/search.js` — wyszukiwanie: pinyin bez tonów, polski, angielski, znak
+- `js/quiz.js` — ocena quizu (pinyin, ton, znaczenie PL/EN)
+- `js/strokes.js` — animacja kolejności kresek (SVG, bez zależności)
+- `strokes/` — dane kresek per znak (+ `index.json`, licencja Arphic); `tools/build-strokes.mjs` generuje je z hanzi-writer-data
 - `js/ui.js` — widoki (HTML), `js/app.js` — router, zdarzenia, sesja fiszek (swipe)
 - `docs/ARCHITECTURE.md` — decyzje i plan dalszych kroków
+
+## Dane kresek
+Po dodaniu nowych znaków do `js/data.js` uruchom:
+
+    git clone --depth 1 https://github.com/chanind/hanzi-writer-data /tmp/hwd
+    node tools/build-strokes.mjs /tmp/hwd
+
+Potem podbij `VERSION` w `sw.js`.
