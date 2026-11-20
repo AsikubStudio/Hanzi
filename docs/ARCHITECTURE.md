@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.7)
+# BotHanzi: architektura (v0.8)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -57,6 +57,14 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Płomienie serii zastąpione girlandą lampionów (nic już nie „lewituje”: lampiony wiszą na sznurze). Pierwszy sznur to dni 1–7, od 8. dnia pojawia się drugi (dni 8–14); zapalone lampiony mają różowy korpus, jasne wnętrze i poświatę, niezapalone to ciemny obrys, czyli cel na kolejne dni. Od 14 dni dochodzą migoczące iskry, a tło kafla nadal ciemnieje ku śliwce (tiery 0–4). Lampiony lekko się kołyszą, poświata pulsuje; `prefers-reduced-motion` wyłącza animacje.
 - Gradient poświaty jest wewnątrz SVG girlandy (`lampGlow`); gradienty płomieni w `index.html` są już nieużywane.
 - Service worker: `bothanzi-v8`.
+
+## Zmiany w v0.8
+- Miasto lampionów (`js/city.js`): od 15. dnia serii w tle kafla rośnie nocna ulica w jednopunktowej perspektywie, jeden nowy element dziennie, do pełnej sceny w 365. dniu (351 kroków). Rzut perspektywiczny jest liczony ze współrzędnych 3D (kamera na wysokości 1,5 nad jezdnią, punkt zbiegu na horyzoncie, ulica o półszerokości 8), więc elewacje, okna, neony, lampy i jezdnia zbiegają się poprawnie.
+- Kolejność budowy: droga i niebo (dzień 15), 24 lampy uliczne od widza ku horyzontowi, odległa panorama za końcem ulicy, 16 kwartałów od horyzontu ku widzowi (bryła z witrynami parteru, okna zapalane po jednym lub po kilka w dalekich kwartałach, dwa neony z hanzi HSK 1 prostopadłe do ulicy z odbiciem na mokrej jezdni), osiem sznurów lampionów zawieszonych w poprzek ulicy (lampion po lampionie), sześć samochodów, brama pailou, na końcu księżyc.
+- Scena jest deterministyczna (stały generator pseudolosowy): dzień serii jednoznacznie określa obraz. Pod numerem serii widać procent ukończenia miasta.
+- Układ: SVG 360×270 przy dolnej krawędzi kafla (maksymalnie 520 px szerokości, z zanikaniem u góry i po bokach); kafel dostaje dolny odstęp, żeby sekcja „Ogółem” nie nakładała się na scenę. Pełna scena to ok. 137 KB znaczników i 1,5 tys. węzłów (generowanie poniżej 50 ms).
+- Animacje: migotanie neonów, pulsowanie lamp i lampionów; `prefers-reduced-motion` je wyłącza.
+- Service worker: `bothanzi-v10` (w app shellu jest `js/city.js`).
 
 ## Dane kresek i licencja
 Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.

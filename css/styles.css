@@ -518,3 +518,19 @@ button.cal-c { cursor: pointer; }
 .overall-grid span { display: block; margin-top: 2px; font-size: .78rem; color: #9fb8aa; }
 .overall-note { margin-top: 12px; font-size: .7rem; color: #86a495; line-height: 1.35; }
 .tier-count { margin-left: auto; }
+
+/* ——— Miasto lampionów (od 15. dnia serii): nocna ulica w perspektywie ——— */
+.city { position: absolute; left: 50%; bottom: 0; width: min(100%, 520px); transform: translateX(-50%); aspect-ratio: 360 / 270; z-index: -1; pointer-events: none;
+  -webkit-mask-image: linear-gradient(to top, #000 78%, transparent), linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+  -webkit-mask-composite: source-in; mask-image: linear-gradient(to top, #000 74%, transparent), linear-gradient(to right, transparent, #000 10%, #000 90%, transparent); mask-composite: intersect; }
+.city svg { display: block; width: 100%; height: 100%; }
+.clamp { animation: lampglow 2.6s ease-in-out infinite; animation-delay: var(--d, 0s); transform-box: fill-box; transform-origin: center; }
+.neon { filter: drop-shadow(0 0 3px var(--nc)); animation: neon 4.2s linear infinite; animation-delay: var(--d, 0s); }
+.neon-t { font-family: var(--hanzi); font-weight: 600; }
+.beacon { animation: blink 2.2s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.city-note { color: #ffb3cb; }
+@keyframes neon { 0%, 100% { opacity: 1; } 46% { opacity: 1; } 48% { opacity: .55; } 50% { opacity: 1; } 52% { opacity: .7; } 54% { opacity: 1; } }
+@keyframes blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .clamp, .neon, .beacon { animation: none !important; } }
+
+.streak-card.has-city { padding-bottom: min(66%, 340px); }

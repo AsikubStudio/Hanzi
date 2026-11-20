@@ -5,6 +5,7 @@ import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
 import { search } from './search.js';
 import { toneOf, TONE_LABEL } from './quiz.js';
 import { bestSentence } from './sentences.js';
+import { cityHTML, cityPercent } from './city.js';
 
 export const esc = (s = '') =>
   String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -182,9 +183,11 @@ function streakTile(days, doneToday) {
   const note = days === 0
     ? 'Zrób dziś jedną powtórkę, żeby zapalić pierwszy lampion.'
     : doneToday ? 'Dzisiejsza powtórka zaliczona.' : 'Ćwicz dziś, żeby nie zgasł lampion.';
-  return `<section class="streak-card" data-tier="${tier}" aria-label="Seria i statystyki nauki">
+  const city = days > 14 ? (cityPercent(days) >= 100 ? 'Miasto lampionów jest gotowe.' : `Miasto lampionów: ${cityPercent(days)}%`) : '';
+  return `<section class="streak-card${days > 14 ? ' has-city' : ''}" data-tier="${tier}" aria-label="Seria i statystyki nauki">
+    ${cityHTML(days)}
     <div class="streak" data-tier="${tier}" role="group" aria-label="Seria: ${days} ${dayWord(days)}">
-      <div class="streak-text"><b>${days}</b><span>${dayWord(days)} serii</span><small>${note}</small></div>
+      <div class="streak-text"><b>${days}</b><span>${dayWord(days)} serii</span><small>${note}</small>${city ? `<small class="city-note">${city}</small>` : ''}</div>
       ${garlandHTML(days)}
     </div>
     ${calendarHTML()}
