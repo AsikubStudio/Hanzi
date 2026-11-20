@@ -1,6 +1,6 @@
 // Widoki jako funkcje zwracające HTML. Zdarzenia obsługuje app.js (delegacja po data-act).
 import { CHARS, LEVELS, BY_HANZI } from './data.js';
-import { state, isKnown, isHard, streak } from './store.js';
+import { state, isKnown, isHard, streak, dayStamp } from './store.js';
 import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
 import { search } from './search.js';
 import { toneOf, TONE_LABEL } from './quiz.js';
@@ -12,21 +12,20 @@ const svg = (d) =>
   `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 
 export const ICONS = {
-  home: svg('<path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/>'),
+  home: svg('<path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/>'),
   known: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>'),
-  discover: svg('<path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/>'),
   cards: svg('<rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v10"/>'),
   search: svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
   close: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
   check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  chevron: svg('<path d="M7 10l5 5 5-5"/>'),
 };
 
 export const TABS = [
   ['home', 'Start'],
   ['known', 'Znane'],
-  ['discover', 'Odkrywaj'],
   ['cards', 'Fiszki'],
 ];
 
@@ -90,28 +89,77 @@ const tile = (c, locked = false) =>
 
 const header = (title, right = '') => `<header class="top"><h1>${title}</h1><div class="top-actions">${right}</div></header>`;
 
-// ——— Start ———
-export function homeView() {
+// ——— Seria: płomienie rosną razem z liczbą dni ———
+const dayWord = (n) => (n === 1 ? 'dzień' : 'dni');
+
+const FLAMES = {
+  1: { 1: [{ x: 80, h: 26 }], 2: [{ x: 68, h: 26 }, { x: 98, h: 20, d: 0.3 }] },
+  2: [{ x: 50, h: 34 }, { x: 82, h: 48, d: 0.25 }, { x: 114, h: 32, d: 0.5 }],
+  3: [{ x: 20, h: 38, d: 0.1 }, { x: 50, h: 56, d: 0.4 }, { x: 80, h: 82 }, { x: 112, h: 58, d: 0.3 }, { x: 142, h: 40, d: 0.6 }],
+  4: [{ x: 0, h: 44, d: 0.2 }, { x: 28, h: 66, d: 0.5 }, { x: 56, h: 88, d: 0.1 }, { x: 86, h: 100 }, { x: 116, h: 84, d: 0.35 },
+    { x: 146, h: 62, d: 0.15 }, { x: 172, h: 42, d: 0.45 }],
+};
+
+const flameSVG = ({ x, h, d = 0 }) =>
+  `<svg class="flame" viewBox="0 0 40 60" style="--x:${x}px;--h:${h};--d:${d}s"><path class="f-out" d="M20 2C21 13 35 21 35 37c0 12-7 21-15 21S5 49 5 37c0-8 5-12 7-19 3 6 6 7 8-16z"/><path class="f-in" d="M20 26c1 7 8 11 8 19 0 7-4 11-8 11s-8-4-8-11c0-5 3-7 4-11 2 3 3 3 4-8z"/></svg>`;
+
+function streakTile(days, doneToday) {
+  const tier = days === 0 ? 0 : days < 3 ? 1 : days < 7 ? 2 : days < 14 ? 3 : 4;
+  const specs = tier === 0 ? [] : tier === 1 ? FLAMES[1][days] : FLAMES[tier];
+  const sparks = tier >= 3 ? Array.from({ length: tier === 3 ? 5 : 9 }, (_, i) =>
+    `<i class="spark" style="--x:${20 + ((i * 37) % 150)}px;--d:${((i * 0.43) % 2.2).toFixed(2)}s"></i>`).join('') : '';
+  const flames = tier === 0
+    ? `<svg class="flame ghost" viewBox="0 0 40 60" style="--x:80px;--h:40"><path d="M20 2C21 13 35 21 35 37c0 12-7 21-15 21S5 49 5 37c0-8 5-12 7-19 3 6 6 7 8-16z"/></svg>`
+    : specs.map(flameSVG).join('') + sparks;
+  const note = days === 0
+    ? 'Zrób dziś jedną powtórkę, żeby zacząć serię.'
+    : doneToday ? 'Dzisiejsza powtórka zaliczona.' : 'Ćwicz dziś, żeby nie przerwać serii.';
+  return `<div class="streak" data-tier="${tier}" role="group" aria-label="Seria: ${days} ${dayWord(days)}">
+    <div class="streak-text"><b>${days}</b><span>${dayWord(days)} serii</span><small>${note}</small></div>
+    <div class="flames" aria-hidden="true">${flames}</div>
+  </div>`;
+}
+
+// ——— Start: postęp, seria i poziomy HSK z listą wszystkich znaków ———
+export function nextLearnLevel() {
+  return LEVELS.find((l) => CHARS.some((c) => c.hsk === l.n && !isKnown(c.hanzi)))?.n ?? null;
+}
+
+// Zawartość listy rozwijanej poziomu (renderowana dopiero po otwarciu): znane znaki na różowo.
+export function tierBodyHTML(n) {
+  const list = CHARS.filter((c) => c.hsk === n);
+  const todo = list.filter((c) => !isKnown(c.hanzi)).length;
+  return `<div class="grid">${list.map((c) => tile(c)).join('')}</div>
+    ${todo
+      ? `<div class="btn-row"><button class="btn small" type="button" data-act="learn-tier" data-lv="${n}">Ucz się nieznanych (${Math.min(20, todo)})</button></div>`
+      : '<p class="hint">Wszystkie znaki z tego poziomu są już znane.</p>'}`;
+}
+
+export function homeView(ui) {
   const known = knownCount();
   const total = CHARS.length;
   const r = rankInfo(known);
   const due = dueDeck().length;
   const st = streak();
+  const next = nextLearnLevel();
 
-  const cta = due > 0
-    ? `<button class="btn primary" data-act="study-due">Powtórka na dziś (${due})</button>`
-    : known === 0
-      ? `<a class="btn primary" href="#/discover">Odkryj pierwsze znaki</a>`
-      : '';
+  const ctas = [
+    due > 0 ? `<button class="btn primary" data-act="study-due">Powtórka na dziś (${due})</button>` : '',
+    next ? `<button class="btn${due > 0 ? '' : ' primary'}" data-act="learn-tier" data-lv="${next}">Ucz się nowych znaków</button>` : '',
+  ].join('');
 
-  const ladder = LEVELS.map((lv) => {
+  const levels = LEVELS.map((lv) => {
     const all = CHARS.filter((c) => c.hsk === lv.n).length;
     if (!all) return '';
     const k = knownCount(lv.n);
-    return `<li class="rung">
-      <div class="rung-head"><span class="rung-label">${lv.label}</span><span class="rung-name">${lv.name}</span><span class="rung-count">${k}/${all}</span></div>
-      <div class="bar" role="progressbar" aria-label="${lv.label}" aria-valuemin="0" aria-valuemax="${all}" aria-valuenow="${k}"><i style="width:${(k / all) * 100}%"></i></div>
-    </li>`;
+    const open = ui.openTiers.has(lv.n);
+    return `<details class="tier" data-lv="${lv.n}" ${open ? 'open' : ''}>
+      <summary>
+        <span class="tier-head"><b>${lv.label}</b><em>${lv.name}</em><span class="tier-count">${k}/${all}</span><span class="chev">${ICONS.chevron}</span></span>
+        <span class="bar" role="progressbar" aria-label="${lv.label}" aria-valuemin="0" aria-valuemax="${all}" aria-valuenow="${k}"><i style="width:${(k / all) * 100}%"></i></span>
+      </summary>
+      <div class="tier-body">${open ? tierBodyHTML(lv.n) : ''}</div>
+    </details>`;
   }).join('');
 
   return `
@@ -125,15 +173,15 @@ export function homeView() {
         <p class="hero-next">${r.next ? `${r.left} do rangi „${r.next}”` : 'Najwyższa ranga osiągnięta'}</p>
       </div>
     </section>
-    ${cta ? `<div class="cta-row">${cta}</div>` : ''}
+    ${ctas ? `<div class="cta-row">${ctas}</div>` : ''}
     <section class="stats" aria-label="Statystyki">
       <div class="stat"><b>${known}</b><span>znane</span></div>
       <div class="stat"><b>${due}</b><span>do powtórki</span></div>
-      <div class="stat"><b>${st}</b><span>${st === 1 ? 'dzień serii' : 'dni serii'}</span></div>
     </section>
+    ${streakTile(st, Boolean(state.activity[dayStamp()]))}
     <section>
       <h2>Poziomy HSK</h2>
-      <ul class="ladder">${ladder}</ul>
+      <div class="levels">${levels}</div>
     </section>`;
 }
 
@@ -166,7 +214,7 @@ export function knownView(ui) {
 
   if (!kc) {
     return `${header('Znane znaki')}
-      <div class="empty"><p>Tu pojawią się znaki, które już znasz.</p><a class="btn" href="#/discover">Przejdź do Odkrywaj</a></div>`;
+      <div class="empty"><p>Tu pojawią się znaki, które już znasz.</p><a class="btn" href="#/home">Wróć na Start</a></div>`;
   }
 
   const sizeChips = QUIZ_SIZES.map((n) =>
@@ -188,49 +236,6 @@ export function knownView(ui) {
     </section>
     <div class="chips" role="group" aria-label="Filtr poziomu">${chips}</div>
     <div id="known-grid">${knownGridHTML(ui)}</div>`;
-}
-
-// ——— Odkrywaj ———
-function tierState(i) {
-  const lv = LEVELS[i];
-  const all = CHARS.filter((c) => c.hsk === lv.n);
-  if (!all.length) return null;
-  const prev = LEVELS.slice(0, i).reverse().find((l) => CHARS.some((c) => c.hsk === l.n));
-  const prevRatio = prev ? knownCount(prev.n) / CHARS.filter((c) => c.hsk === prev.n).length : 1;
-  const todo = all.filter((c) => !isKnown(c.hanzi));
-  return { lv, all, prev, todo, k: all.length - todo.length, locked: Boolean(prev) && prevRatio < 0.5 };
-}
-
-// Poziom, od którego warto zacząć naukę: pierwszy odblokowany z nieznanymi znakami.
-export function nextLearnLevel() {
-  const states = LEVELS.map((_, i) => tierState(i)).filter(Boolean);
-  return (states.find((t) => !t.locked && t.todo.length) || states.find((t) => t.todo.length))?.lv.n ?? null;
-}
-
-export function discoverView(ui) {
-  const next = nextLearnLevel();
-  const tiers = LEVELS.map((_, i) => {
-    const t = tierState(i);
-    if (!t) return '';
-    const { lv, todo, k, locked, prev, all } = t;
-    const open = ui.openTiers.has(lv.n) || (!ui.tiersTouched && lv.n === next);
-    return `<details class="tier${locked ? ' is-locked' : ''}" data-lv="${lv.n}" ${open ? 'open' : ''}>
-      <summary>
-        <span class="tier-title"><b>${lv.label}</b><em>${lv.name}</em></span>
-        <span class="tier-meta">${locked ? ICONS.lock : ''}<span>${k}/${all.length}</span></span>
-      </summary>
-      ${locked ? `<p class="hint">Odblokuje się po opanowaniu połowy znaków z ${prev.label}. Możesz je jednak podejrzeć.</p>` : ''}
-      ${todo.length
-        ? `<div class="grid">${todo.map((c) => tile(c, locked)).join('')}</div>
-           <div class="btn-row"><button class="btn small" type="button" data-act="learn-tier" data-lv="${lv.n}">Ucz się tych znaków (${Math.min(20, todo.length)})</button></div>`
-        : '<p class="hint">Wszystkie znaki z tego poziomu masz już w Znanych.</p>'}
-    </details>`;
-  }).join('');
-
-  const learn = next
-    ? `<button class="btn primary" type="button" data-act="learn-tier" data-lv="${next}">Ucz się nowych znaków</button>`
-    : '';
-  return `${header('Do odkrycia')}${learn ? `<div class="cta-row">${learn}</div>` : ''}<div class="tiers">${tiers}</div>`;
 }
 
 // ——— Fiszki ———
@@ -294,7 +299,10 @@ export function sheetView(c) {
   return `<div class="sheet-backdrop" data-act="close-sheet"></div>
     <section class="sheet" role="dialog" aria-modal="true" aria-label="Znak ${esc(c.hanzi)}">
       <div class="grab" aria-hidden="true"></div>
-      <div class="stroke-box" data-h="${esc(c.hanzi)}"><div class="sheet-hanzi" lang="zh">${esc(c.hanzi)}</div></div>
+      <div class="writing">
+        <figure class="wbox"><div class="wframe"><span class="wglyph" lang="zh">${esc(c.hanzi)}</span></div><figcaption>Pismo drukowane</figcaption></figure>
+        <figure class="wbox stroke-box" data-h="${esc(c.hanzi)}"><div class="wframe"></div><figcaption class="stroke-count">Kolejność kresek</figcaption></figure>
+      </div>
       <p class="sheet-py">${esc(c.pinyin)}</p>
       <p class="pill">${lv ? lv.label : ''}</p>
       <dl class="meanings"><div><dt>Polski</dt><dd>${esc(c.pl)}</dd></div><div><dt>English</dt><dd>${esc(c.en)}</dd></div></dl>

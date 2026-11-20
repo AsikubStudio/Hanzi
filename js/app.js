@@ -7,7 +7,7 @@ import { search } from './search.js';
 import { gradeAnswer } from './quiz.js';
 import { mountStrokes } from './strokes.js';
 import {
-  tabbarHTML, homeView, knownView, discoverView, cardsView, resultsHTML, knownGridHTML, quizCount,
+  tabbarHTML, homeView, knownView, cardsView, tierBodyHTML, resultsHTML, knownGridHTML, quizCount,
   sheetView, formView, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
 } from './ui.js';
 
@@ -29,12 +29,11 @@ const ui = {
   quizSize: '10',
   quizCustom: '15',
   openTiers: new Set(),
-  tiersTouched: false,
   deckSize: 20,
   deckLevel: 0,
 };
 
-const VIEWS = { home: homeView, known: knownView, discover: discoverView, cards: cardsView };
+const VIEWS = { home: homeView, known: knownView, cards: cardsView };
 
 // ——— Router ———
 function currentTab() {
@@ -122,7 +121,12 @@ function openChar(h) {
   if (!c) return;
   openSheet(sheetView(c));
   const box = sheetEl.querySelector('.stroke-box');
-  if (box) mountStrokes(box, h);
+  if (box) {
+    mountStrokes(box, h).then((ok) => {
+      if (!ok && box.isConnected) box.hidden = true; // brak danych kresek: zostaje samo pismo drukowane
+      if (!ok) sheetEl.querySelector('.writing')?.classList.add('single');
+    });
+  }
 }
 
 // ——— Sesja fiszek (review / learn) ———
@@ -309,7 +313,6 @@ const ACTIONS = {
     toggleHard(h);
     afterToggle(h, isHard(h) ? `Dodano ${h} do trudnych` : `Usunięto ${h} z trudnych`);
   },
-  'replay-strokes': (el) => el.closest('.stroke-box')?._play?.(),
   'known-level': (el) => { ui.knownLevel = Number(el.dataset.lv); render({ keepScroll: true }); },
   'known-search': () => {
     ui.knownSearchOpen = !ui.knownSearchOpen;
@@ -387,9 +390,14 @@ document.addEventListener('input', (e) => {
 document.addEventListener('toggle', (e) => {
   const d = e.target;
   if (!d.matches?.('details.tier')) return;
-  ui.tiersTouched = true;
   const n = Number(d.dataset.lv);
-  if (d.open) ui.openTiers.add(n); else ui.openTiers.delete(n);
+  if (d.open) {
+    ui.openTiers.add(n);
+    const body = d.querySelector('.tier-body');
+    if (body && !body.innerHTML.trim()) body.innerHTML = tierBodyHTML(n);
+  } else {
+    ui.openTiers.delete(n);
+  }
 }, true);
 
 // ——— Start ———

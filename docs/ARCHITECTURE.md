@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.2)
+# BotHanzi: architektura (v0.3)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -22,6 +22,11 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Fiszki: przycisk i swipe w górę „Dalej” (pominięcie bez oceny) w każdej sesji; tryb „Ucz się nowych” z Odkrywaj (Znam → znane, Trudny → trudne, Dalej).
 - Karta znaku: animowana kolejność kresek. Własny renderer: obrys kreski jako clipPath, gruba linia po medianie rysowana przez stroke-dasharray. Dane w `strokes/<kod-hex>.json`, precache w service workerze.
 - Start: usunięto „Utwórz talię ze znanych”.
+
+## Zmiany w v0.3
+- Start połączony z Odkrywaj (zakładki: Start, Znane, Fiszki). Poziomy HSK to listy rozwijane z wszystkimi znakami poziomu; znane na różowo; blokada wyższych poziomów usunięta; zawartość listy renderowana dopiero po otwarciu (wydajność przy ~2500 znaków).
+- Karta znaku: dwa systemy pisma obok siebie w kwadratach tej samej wielkości (pismo drukowane i animowana kolejność kresek). Animacja zapętla się sama, bez przycisku „Powtórz”.
+- Seria dni: płomienie w 5 stopniach (0, 1–2, 3–6, 7–13, 14+ dni): od szkicu, przez mini płomyczki, po duży ogień z iskrami i poświatą. `prefers-reduced-motion` wyłącza animacje.
 
 ## Dane kresek i licencja
 Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.

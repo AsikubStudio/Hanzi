@@ -52,18 +52,15 @@ export async function mountStrokes(box, hanzi) {
   const n = outlines.length;
 
   box.innerHTML = `
-    <svg class="stroke-svg" viewBox="0 0 1024 1024" role="img" aria-label="Kolejność kresek znaku ${hanzi}">
+    <div class="wframe"><svg class="stroke-svg" viewBox="0 0 1024 1024" role="img" aria-label="Kolejność kresek znaku ${hanzi}">
       <defs>${outlines.map((d, i) => `<clipPath id="${id}c${i}"><path d="${d}"/></clipPath>`).join('')}</defs>
       <g class="stroke-grid"><path d="M512 0V1024M0 512H1024"/></g>
       <g transform="translate(0 900) scale(1 -1)">
         <g class="stroke-ghost">${outlines.map((d) => `<path d="${d}"/>`).join('')}</g>
         <g>${medians.map((m, i) => `<g clip-path="url(#${id}c${i})"><path class="stroke-line" d="${medianPath(m)}"/></g>`).join('')}</g>
       </g>
-    </svg>
-    <div class="stroke-meta">
-      <span class="stroke-count" aria-live="off"></span>
-      <button class="btn small" type="button" data-act="replay-strokes">Powtórz</button>
-    </div>`;
+    </svg></div>
+    <figcaption class="stroke-count" aria-live="off"></figcaption>`;
 
   const lines = [...box.querySelectorAll('.stroke-line')];
   const count = box.querySelector('.stroke-count');
@@ -93,11 +90,9 @@ export async function mountStrokes(box, hanzi) {
     }
   };
 
-  box._play = play;
   if (reduced()) {
     lines.forEach((_, i) => setShown(i));
     count.textContent = `${n} ${strokesWord(n)}`;
-    box.querySelector('[data-act="replay-strokes"]').hidden = true;
   } else {
     play();
   }
