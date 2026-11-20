@@ -14,7 +14,7 @@ const tokens = (s) => s.split(/[;,]/).map((t) => norm(t).trim()).filter(Boolean)
 
 const INDEX = CHARS.map((c) => ({
   c,
-  py: norm(c.pinyin),
+  py: c.pinyin.split(/[;,]/).map((r) => norm(r).replace(/\s+/g, '')).filter(Boolean), // wiele odczytań: „jiào; jué”
   en: tokens(c.en),
   pl: tokens(c.pl),
 }));
@@ -43,8 +43,8 @@ export function search(raw) {
     let s = 0;
     if (hanziIn.includes(row.c.hanzi)) s = 100;
     if (qp) {
-      if (row.py === qp) s = Math.max(s, 90);
-      else if (row.py.startsWith(qp)) s = Math.max(s, 70);
+      if (row.py.some((r) => r === qp)) s = Math.max(s, 90);
+      else if (row.py.some((r) => r.startsWith(qp))) s = Math.max(s, 70);
     }
     if (q) s = Math.max(s, scoreMeaning(row.pl, q), scoreMeaning(row.en, q));
     if (s) out.push({ c: row.c, s });

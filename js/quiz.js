@@ -5,17 +5,27 @@ const MARKS = { '̄': 1, '́': 2, '̌': 3, '̀': 4 };
 
 // 1–4 wg znaku diakrytycznego, 5 = ton lekki (brak znaku).
 export function toneOf(pinyin) {
-  for (const ch of pinyin.normalize('NFD')) if (MARKS[ch]) return MARKS[ch];
+  const first = pinyin.split(/[;,]/)[0]; // przy wielu odczytaniach liczy się pierwszy
+  for (const ch of first.normalize('NFD')) if (MARKS[ch]) return MARKS[ch];
   return 5;
 }
+
+// Znak może mieć kilka odczytań w jednym polu: „jiào; jué”.
+export const readings = (pinyin) => pinyin.split(/[;,]/).map((r) => r.trim()).filter(Boolean);
 
 export const TONE_LABEL = { 1: 'ton 1 (ā)', 2: 'ton 2 (á)', 3: 'ton 3 (ǎ)', 4: 'ton 4 (à)', 5: 'ton lekki' };
 
 const syllable = (s) => norm(s).replace(/\s+/g, '').replace(/v/g, 'u');
 
-export function checkPinyin(input, c) {
+// Zwraca pasujące odczytanie (z tonem) albo null.
+export function matchReading(input, c) {
   const a = syllable(input);
-  return a !== '' && a === syllable(c.pinyin);
+  if (a === '') return null;
+  return readings(c.pinyin).find((r) => syllable(r) === a) || null;
+}
+
+export function checkPinyin(input, c) {
+  return matchReading(input, c) !== null;
 }
 
 // Zdejmujemy „to ”, „a ”, „the ”, żeby „eat” pasowało do „to eat”.
@@ -49,7 +59,7 @@ export function checkMeaning(input, c) {
 export function gradeAnswer({ py, tone, meaning }, c) {
   const res = {
     py: { ok: checkPinyin(py, c), val: py.trim() },
-    tone: { ok: tone === toneOf(c.pinyin), val: tone },
+    tone: { ok: tone === toneOf(matchReading(py, c) || c.pinyin), val: tone },
     meaning: { ok: checkMeaning(meaning, c), val: meaning.trim() },
   };
   res.pts = Number(res.py.ok) + Number(res.tone.ok) + Number(res.meaning.ok);

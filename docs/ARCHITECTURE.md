@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.4)
+# BotHanzi: architektura (v0.5)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -36,11 +36,19 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Przy rozbudowie bazy do ~2500 znaków trzeba dopisać zdania (każdy znak powinien mieć co najmniej jedno).
 - Service worker: `bothanzi-v5`.
 
+## Zmiany w v0.5
+- Baza: kompletny HSK 1 według oficjalnej listy HSK 2.0 (150 słów rozbitych na 178 unikalnych znaków), razem 200 znaków. Znak dostaje najniższy poziom słowa, w którym występuje (źródło: drkameleon/complete-hsk-vocabulary). Kolejność w poziomie: od najczęstszych (znaki będące słowami jednoznakowymi wcześniej), więc „Ucz się nowych” zaczyna od 的, 了, 是, 在.
+- Poprawione poziomy starych znaków: 山, 马 → 3; 花 → 3; 茶 → 1; 极 → 3; 林, 森, 麻 → 4.
+- Wiele odczytań w jednym polu pinyin („jiào; jué”, „le; liǎo”, „zi; zǐ”): wyszukiwarka dopasowuje każde, quiz akceptuje każde odczytanie, a ton liczy się dla odczytania pasującego do wpisanego pinyin (przy błędnym pinyin dla pierwszego).
+- Kreski dla wszystkich 200 znaków (`strokes/`), zdania: 142, każdy znak HSK 1 ma co najmniej jedno.
+- `tools/hsk-missing.py`: lista brakujących znaków wybranego poziomu.
+- Service worker: `bothanzi-v6`. Uwaga na rozmiar: precache kresek to dziś ok. 0,8 MB; przy ~2500 znaków wyniesie ok. 10 MB, więc warto wtedy przejść na cache przy pierwszym użyciu.
+
 ## Dane kresek i licencja
 Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.
 
 ## Następne kroki
-1. Pełna baza HSK 1–6 (~2500 znaków) z weryfikacją poziomów i polskich znaczeń.
+1. HSK 2 (161 brakujących znaków), potem poziomy 3–6; przejrzenie polskich znaczeń HSK 1.
 2. Audio; tryb ćwiczenia rysowania znaku palcem.
 3. Eksport/import postępu (JSON) i ewentualna synchronizacja.
 4. Weryfikacja iOS: instalacja z Safari, ikony, pasek stanu.
