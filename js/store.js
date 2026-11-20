@@ -5,11 +5,12 @@
 // srs:      { [key]: { box, due } }              powtórki (key = hanzi lub „c:<id>”)
 // activity: { 'YYYY-MM-DD': liczba ocenionych kart }
 // theme:    'auto' | 'light' | 'dark'
+// log:      { 'YYYY-MM-DD': { r: powtórki, g: oceny do retencji, ok: poprawne, t: czas nauki w ms } }
 // showTr:   czy pokazywać tłumaczenie zdań przykładowych (ikona tłumacza w rogu zdania)
 
 const KEY = 'bothanzi:v1';
 
-const defaults = () => ({ known: {}, hard: [], custom: [], srs: {}, activity: {}, theme: 'auto', showTr: false });
+const defaults = () => ({ known: {}, hard: [], custom: [], srs: {}, activity: {}, log: {}, theme: 'auto', showTr: false });
 
 function load() {
   try {
@@ -60,10 +61,40 @@ export function removeCustom(id) {
   save();
 }
 
-export function logActivity(n = 1) {
+const dayLog = (k) => (state.log[k] ||= { r: 0, g: 0, ok: 0, t: 0 });
+
+// Jedna ocena karty. graded = karta liczy się do retencji (powtórki i quiz, nie tryb nauki); ok = zapamiętana.
+export function logReview({ graded = false, ok = false } = {}) {
   const k = dayStamp();
-  state.activity[k] = (state.activity[k] || 0) + n;
+  state.activity[k] = (state.activity[k] || 0) + 1;
+  const d = dayLog(k);
+  d.r++;
+  if (graded) { d.g++; if (ok) d.ok++; }
   save();
+}
+
+// Czas aktywnej nauki (ms) dopisywany do dzisiejszego dnia.
+export function logTime(ms) {
+  if (!(ms > 0)) return;
+  dayLog(dayStamp()).t += Math.round(ms);
+  save();
+}
+
+// Statystyki dnia; dni sprzed wprowadzenia `log` mają tylko liczbę powtórek z `activity`.
+export function dayStats(k) {
+  const l = state.log[k] || { r: 0, g: 0, ok: 0, t: 0 };
+  return { ...l, r: Math.max(l.r, state.activity[k] || 0) };
+}
+
+export function overallStats() {
+  const keys = new Set([...Object.keys(state.log), ...Object.keys(state.activity)]);
+  const o = { t: 0, r: 0, g: 0, ok: 0, days: 0 };
+  for (const k of keys) {
+    const d = dayStats(k);
+    o.t += d.t; o.r += d.r; o.g += d.g; o.ok += d.ok;
+    if (d.r > 0) o.days++;
+  }
+  return o;
 }
 
 export function streak() {

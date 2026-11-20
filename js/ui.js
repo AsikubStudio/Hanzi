@@ -1,6 +1,6 @@
 // Widoki jako funkcje zwracające HTML. Zdarzenia obsługuje app.js (delegacja po data-act).
 import { CHARS, LEVELS, BY_HANZI } from './data.js';
-import { state, isKnown, isHard, streak, dayStamp } from './store.js';
+import { state, isKnown, isHard, streak, dayStamp, dayStats, overallStats } from './store.js';
 import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
 import { search } from './search.js';
 import { toneOf, TONE_LABEL } from './quiz.js';
@@ -109,10 +109,10 @@ function forestSVG(known) {
       <radialGradient id="halo"><stop offset="0" stop-color="#f07aa0" stop-opacity=".55"/><stop offset="1" stop-color="#f07aa0" stop-opacity="0"/></radialGradient>
       <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfeadb" stop-opacity="0"/><stop offset=".55" stop-color="#cfeadb" stop-opacity=".16"/><stop offset="1" stop-color="#cfeadb" stop-opacity="0"/></linearGradient>
     </defs>
+    <circle cx="262" cy="84" r="46" fill="url(#halo)"/><circle class="sun" cx="262" cy="84" r="18"/>
+    <circle class="moongate" cx="262" cy="84" r="27"/>
     <path class="karst" d="M0 128V104Q8 100 14 84Q18 70 26 66Q34 64 38 80Q42 96 54 100Q60 80 66 62Q72 48 80 50Q88 54 90 72Q94 96 108 104Q122 100 130 88Q138 76 146 82Q152 92 156 104L170 112Q196 108 206 94Q214 82 222 86Q230 92 232 104Q246 112 262 106Q272 100 276 88Q282 70 292 66Q300 64 304 82Q308 100 322 106Q340 104 352 92L360 88V128Z"/>
-    <rect x="0" y="96" width="360" height="26" fill="url(#mist)"/>
-    <circle cx="282" cy="80" r="46" fill="url(#halo)"/><circle class="sun" cx="282" cy="80" r="18"/>
-    <circle class="moongate" cx="282" cy="80" r="27"/>
+    <rect x="0" y="86" width="360" height="40" fill="url(#mist)"/>
     ${cloud(236, 60, 0.8)}${cloud(318, 100, 0.55)}${cloud(150, 118, 0.5)}
     <path class="ridge-back" d="M0 118C40 92 82 108 124 94S204 78 252 98S330 90 360 102V180H0Z"/>
     ${pagoda(167, 85, 0.62)}
@@ -132,34 +132,138 @@ const tile = (c, locked = false) =>
 
 const header = (title, right = '') => `<header class="top"><h1>${title}</h1><div class="top-actions">${right}</div></header>`;
 
-// ——— Seria: płomienie rosną razem z liczbą dni ———
+// ——— Seria: lampiony zapalają się dzień po dniu ———
 const dayWord = (n) => (n === 1 ? 'dzień' : 'dni');
 
-const FLAMES = {
-  1: { 1: [{ x: 80, h: 26 }], 2: [{ x: 68, h: 26 }, { x: 98, h: 20, d: 0.3 }] },
-  2: [{ x: 50, h: 34 }, { x: 82, h: 48, d: 0.25 }, { x: 114, h: 32, d: 0.5 }],
-  3: [{ x: 20, h: 38, d: 0.1 }, { x: 50, h: 56, d: 0.4 }, { x: 80, h: 82 }, { x: 112, h: 58, d: 0.3 }, { x: 142, h: 40, d: 0.6 }],
-  4: [{ x: 0, h: 44, d: 0.2 }, { x: 28, h: 66, d: 0.5 }, { x: 56, h: 88, d: 0.1 }, { x: 86, h: 100 }, { x: 116, h: 84, d: 0.35 },
-    { x: 146, h: 62, d: 0.15 }, { x: 172, h: 42, d: 0.45 }],
-};
+// Lampion (wspólny kształt): współrzędne lokalne, początek na środku zawieszenia.
+// lit = zapalony: różowy korpus, jasne wnętrze i poświata; zgaszony: ciemny obrys.
+function lampion(x, y, sc, lit, i) {
+  const rib = lit ? '#b83a68' : '#2f5143';
+  const cap = lit ? '#5c1f3a' : '#2a4639';
+  const glow = lit ? `<circle class="lamp-halo" cx="0" cy="21" r="24" fill="url(#lampGlow)" style="--d:${(i * 0.37).toFixed(2)}s"/>` : '';
+  const body = lit
+    ? '<ellipse cx="0" cy="18" rx="11" ry="12" fill="#f07aa0"/><ellipse cx="0" cy="18" rx="6.2" ry="8.4" fill="#ffd9e5" opacity=".9"/>'
+    : '<ellipse cx="0" cy="18" rx="11" ry="12" fill="#10241c" stroke="#3d6454" stroke-width="1.1"/>';
+  return `<g transform="translate(${x} ${y}) scale(${sc})"><g class="lamp${lit ? ' lit' : ''}" style="--d:${(i * 0.45).toFixed(2)}s">
+    ${glow}
+    <path d="M0 -6V3" stroke="${cap}" stroke-width="1" fill="none"/>
+    ${body}
+    <path d="M0 6V30M-6.2 7Q-9.8 18-6.2 29M6.2 7Q9.8 18 6.2 29" stroke="${rib}" stroke-width=".9" fill="none"/>
+    <rect x="-6" y="3" width="12" height="3.2" rx="1.2" fill="${cap}"/><rect x="-5" y="29.5" width="10" height="3.2" rx="1.2" fill="${cap}"/>
+    <path d="M0 32.7V39" stroke="${lit ? '#f07aa0' : '#3d6454'}" stroke-width="1.1"/><circle cx="0" cy="40" r="1.5" fill="${lit ? '#ffb3cb' : '#3d6454'}"/>
+  </g></g>`;
+}
 
-const flameSVG = ({ x, h, d = 0 }) =>
-  `<svg class="flame" viewBox="0 0 40 60" style="--x:${x}px;--h:${h};--d:${d}s"><path class="f-out" d="M20 2C21 13 35 21 35 37c0 12-7 21-15 21S5 49 5 37c0-8 5-12 7-19 3 6 6 7 8-16z"/><path class="f-in" d="M20 26c1 7 8 11 8 19 0 7-4 11-8 11s-8-4-8-11c0-5 3-7 4-11 2 3 3 3 4-8z"/></svg>`;
+// Girlanda: pierwszy sznur to dni 1–7, drugi (od 8. dnia) dni 8–14. Od 14 dni lampiony migoczą iskrami.
+function garlandHTML(days) {
+  const row = (y0, sag, x0, x1, n, sc, lit, off) => {
+    const w = x1 - x0;
+    let out = `<path class="cord" d="M${x0} ${y0}Q${(x0 + x1) / 2} ${y0 + 2 * sag} ${x1} ${y0}" fill="none"/>`;
+    for (let k = 0; k < n; k++) {
+      const t = (k + 0.5) / n;
+      out += lampion(x0 + w * t, y0 + 2 * sag * t * (1 - t) + 1, sc, k < lit, off + k);
+    }
+    return out;
+  };
+  const first = row(6, 12, 2, 198, 7, 0.92, Math.min(days, 7), 0);
+  const second = days > 7 ? row(66, 10, 14, 186, 7, 0.78, Math.min(days - 7, 7), 7) : '';
+  const sparks = days >= 14 ? Array.from({ length: 9 }, (_, i) =>
+    `<i class="ember" style="--x:${(8 + ((i * 53) % 86)).toFixed(0)}%;--y:${(14 + ((i * 37) % 70)).toFixed(0)}%;--d:${((i * 0.41) % 2.4).toFixed(2)}s"></i>`).join('') : '';
+  return `<div class="garland" aria-hidden="true">
+    <svg viewBox="0 0 200 122" overflow="visible">
+      <defs><radialGradient id="lampGlow"><stop offset="0" stop-color="#ff8fb4" stop-opacity=".62"/><stop offset="1" stop-color="#ff8fb4" stop-opacity="0"/></radialGradient></defs>
+      ${first}${second}
+    </svg>${sparks}
+  </div>`;
+}
 
 function streakTile(days, doneToday) {
   const tier = days === 0 ? 0 : days < 3 ? 1 : days < 7 ? 2 : days < 14 ? 3 : 4;
-  const specs = tier === 0 ? [] : tier === 1 ? FLAMES[1][days] : FLAMES[tier];
-  const sparks = tier >= 3 ? Array.from({ length: tier === 3 ? 5 : 9 }, (_, i) =>
-    `<i class="spark" style="--x:${20 + ((i * 37) % 150)}px;--d:${((i * 0.43) % 2.2).toFixed(2)}s"></i>`).join('') : '';
-  const flames = tier === 0
-    ? `<svg class="flame ghost" viewBox="0 0 40 60" style="--x:80px;--h:40"><path d="M20 2C21 13 35 21 35 37c0 12-7 21-15 21S5 49 5 37c0-8 5-12 7-19 3 6 6 7 8-16z"/></svg>`
-    : specs.map(flameSVG).join('') + sparks;
   const note = days === 0
-    ? 'Zrób dziś jedną powtórkę, żeby zacząć serię.'
-    : doneToday ? 'Dzisiejsza powtórka zaliczona.' : 'Ćwicz dziś, żeby nie przerwać serii.';
-  return `<div class="streak" data-tier="${tier}" role="group" aria-label="Seria: ${days} ${dayWord(days)}">
-    <div class="streak-text"><b>${days}</b><span>${dayWord(days)} serii</span><small>${note}</small></div>
-    <div class="flames" aria-hidden="true">${flames}</div>
+    ? 'Zrób dziś jedną powtórkę, żeby zapalić pierwszy lampion.'
+    : doneToday ? 'Dzisiejsza powtórka zaliczona.' : 'Ćwicz dziś, żeby nie zgasł lampion.';
+  return `<section class="streak-card" data-tier="${tier}" aria-label="Seria i statystyki nauki">
+    <div class="streak" data-tier="${tier}" role="group" aria-label="Seria: ${days} ${dayWord(days)}">
+      <div class="streak-text"><b>${days}</b><span>${dayWord(days)} serii</span><small>${note}</small></div>
+      ${garlandHTML(days)}
+    </div>
+    ${calendarHTML()}
+    ${overallHTML()}
+  </section>`;
+}
+
+// ——— Kalendarz nauki (jak na GitHubie) i statystyki ogółem ———
+const plural = (n, one, few, many) => (n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many);
+export const cardsWord = (n) => `${n} ${plural(n, 'karta', 'karty', 'kart')}`;
+
+export function fmtTime(ms) {
+  const min = Math.round(ms / 60000);
+  if (ms > 0 && min < 1) return '<1 min';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h} h ${String(m).padStart(2, '0')} min` : `${h} h`;
+}
+
+const WEEKS = 18;
+const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
+const level = (r) => (r === 0 ? 0 : r < 5 ? 1 : r < 15 ? 2 : r < 30 ? 3 : 4);
+
+// Opis dnia pod kalendarzem; offset 0 = dziś.
+export function dayDetail(key) {
+  const d = dayStats(key);
+  const [y, m, dd] = key.split('-').map(Number);
+  const label = key === dayStamp()
+    ? 'Dziś'
+    : new Date(y, m - 1, dd).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' });
+  return d.r || d.t
+    ? `<b>${label}</b>: ${cardsWord(d.r)}${d.t ? `, ${fmtTime(d.t)}` : ''}`
+    : `<b>${label}</b>: bez nauki`;
+}
+
+function calendarHTML() {
+  const today = dayStamp();
+  const dow = (new Date().getDay() + 6) % 7; // poniedziałek = 0
+  const cols = [];
+  let prevMonth = -1;
+  for (let c = 0; c < WEEKS; c++) {
+    const mondayKey = dayStamp((c - (WEEKS - 1)) * 7 - dow);
+    const month = Number(mondayKey.slice(5, 7)) - 1;
+    cols.push(month !== prevMonth ? `<span class="cal-m" style="grid-column:${c + 2}">${MONTHS[month]}</span>` : '');
+    prevMonth = month;
+  }
+  const cells = [];
+  for (let r = 0; r < 7; r++) {
+    cells.push(`<span class="cal-w">${['Pn', '', 'Śr', '', 'Pt', '', ''][r]}</span>`);
+    for (let c = 0; c < WEEKS; c++) {
+      const off = (c - (WEEKS - 1)) * 7 + (r - dow);
+      if (off > 0) { cells.push('<i class="cal-c future"></i>'); continue; }
+      const key = dayStamp(off);
+      const d = dayStats(key);
+      cells.push(`<button type="button" class="cal-c l${level(d.r)}${key === today ? ' today sel' : ''}" data-act="cal-day" data-d="${key}" aria-label="${key}: ${cardsWord(d.r)}"></button>`);
+    }
+  }
+  return `<div class="cal" role="group" aria-label="Kalendarz nauki">
+    <div class="cal-months cal-cols" aria-hidden="true">${cols.join('')}</div>
+    <div class="cal-grid cal-cols">${cells.join('')}</div>
+    <p class="cal-detail" aria-live="polite">${dayDetail(today)}</p>
+    <p class="cal-legend" aria-hidden="true"><span>mniej</span><i class="cal-c l0"></i><i class="cal-c l1"></i><i class="cal-c l2"></i><i class="cal-c l3"></i><i class="cal-c l4"></i><span>więcej</span></p>
+  </div>`;
+}
+
+function overallHTML() {
+  const o = overallStats();
+  const retention = o.g ? `${Math.round((o.ok / o.g) * 100)}%` : '—';
+  const item = (v, l) => `<div><b>${v}</b><span>${l}</span></div>`;
+  return `<div class="overall" role="group" aria-label="Ogółem">
+    <h3>Ogółem</h3>
+    <div class="overall-grid">
+      ${item(fmtTime(o.t), 'czas nauki')}
+      ${item(o.days, plural(o.days, 'dzień nauki', 'dni nauki', 'dni nauki'))}
+      ${item(retention, 'retencja')}
+      ${item(o.r, plural(o.r, 'powtórka', 'powtórki', 'powtórek'))}
+    </div>
+    <p class="overall-note">Retencja to odsetek poprawnych odpowiedzi w powtórkach i quizach.</p>
   </div>`;
 }
 
@@ -198,7 +302,7 @@ export function homeView(ui) {
     const open = ui.openTiers.has(lv.n);
     return `<details class="tier" data-lv="${lv.n}" ${open ? 'open' : ''}>
       <summary>
-        <span class="tier-head"><b>${lv.label}</b><em>${lv.name}</em><span class="tier-count">${k}/${all}</span><span class="chev">${ICONS.chevron}</span></span>
+        <span class="tier-head"><b>${lv.label}</b><span class="tier-count">${k}/${all}</span><span class="chev">${ICONS.chevron}</span></span>
         <span class="bar" role="progressbar" aria-label="${lv.label}" aria-valuemin="0" aria-valuemax="${all}" aria-valuenow="${k}"><i style="width:${(k / all) * 100}%"></i></span>
       </summary>
       <div class="tier-body">${open ? tierBodyHTML(lv.n) : ''}</div>

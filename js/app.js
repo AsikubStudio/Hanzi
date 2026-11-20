@@ -1,6 +1,6 @@
 import { BY_HANZI } from './data.js';
 import {
-  state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logActivity, setTheme, setShowTr,
+  state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logReview, logTime, setTheme, setShowTr,
 } from './store.js';
 import { grade, dueDeck, knownDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
 import { search } from './search.js';
@@ -8,7 +8,7 @@ import { gradeAnswer } from './quiz.js';
 import { mountStrokes } from './strokes.js';
 import {
   tabbarHTML, homeView, knownView, cardsView, tierBodyHTML, resultsHTML, knownGridHTML, quizCount,
-  sheetView, formView, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
+  sheetView, formView, dayDetail, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
 } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -129,6 +129,22 @@ function openChar(h) {
   }
 }
 
+// ——— Zegar nauki: liczy aktywny czas w sesjach i quizach ———
+// Pojedynczy odcinek (od pokazania karty do odpowiedzi) liczy się najwyżej CAP ms, żeby przerwa nie zawyżała czasu.
+const CAP = 45000;
+let clockAt = 0;
+const clockStart = () => { clockAt = Date.now(); };
+function clockTick(keepRunning = true) {
+  if (!clockAt) return;
+  const now = Date.now();
+  logTime(Math.min(now - clockAt, CAP));
+  clockAt = keepRunning ? now : 0;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) clockTick(false);
+  else if (S || Q) clockStart();
+});
+
 // ——— Sesja fiszek (review / learn) ———
 let S = null;
 
@@ -140,6 +156,7 @@ function startSession(deck, emptyMsg, mode = 'review') {
 }
 
 function openSessionScreen() {
+  clockStart();
   sessionEl.hidden = false;
   document.body.classList.add('in-session');
 }
@@ -150,6 +167,7 @@ function drawSession() {
 }
 
 function endSession() {
+  clockTick(false);
   S = null;
   Q = null;
   sessionEl.hidden = true;
@@ -167,15 +185,16 @@ function answer(dir) {
   } else if (S.mode === 'learn') {
     if (dir === 'yes') { if (!isKnown(c.hanzi)) toggleKnown(c.hanzi); S.hit++; }
     else { if (!isHard(c.hanzi)) toggleHard(c.hanzi); S.miss.push(c); }
-    logActivity();
+    logReview();
   } else {
     grade(c.key, dir === 'yes');
-    logActivity();
+    logReview({ graded: true, ok: dir === 'yes' });
     if (dir === 'yes') S.hit++; else S.miss.push(c);
   }
   S.flipped = false;
   S.i++;
   if (S.i >= S.deck.length) S.done = true;
+  clockTick(!S.done);
   drawSession();
 }
 
@@ -258,11 +277,12 @@ function quizCheck() {
     meaning: $('#qz-mean').value,
   }, c);
   grade(c.key, res.full);
-  logActivity();
+  logReview({ graded: true, ok: res.full });
   Q.pts += res.pts;
   if (res.full) Q.full++; else Q.miss.push(c);
   Q.last = { ...res, item: c };
   Q.step = 'result';
+  clockTick();
   drawQuiz();
 }
 
@@ -271,6 +291,7 @@ function quizNext() {
   Q.tone = null;
   Q.step = 'ask';
   if (Q.i >= Q.deck.length) Q.done = true;
+  clockTick(!Q.done);
   drawQuiz();
 }
 
@@ -305,6 +326,11 @@ const ACTIONS = {
   open: (el) => openChar(el.dataset.h),
   'close-sheet': closeSheet,
   theme: cycleTheme,
+  'cal-day': (el) => {
+    document.querySelectorAll('.cal-c.sel').forEach((n) => n.classList.remove('sel'));
+    el.classList.add('sel');
+    document.querySelector('.cal-detail').innerHTML = dayDetail(el.dataset.d);
+  },
   'toggle-tr': () => {
     setShowTr(!state.showTr);
     document.querySelectorAll('.sentence').forEach((d) => {
@@ -351,6 +377,7 @@ const ACTIONS = {
   'retry-missed': () => {
     const deck = S.miss;
     S = { mode: S.mode, deck, i: 0, flipped: false, hit: 0, miss: [], skipped: 0, done: false };
+    clockStart();
     drawSession();
   },
 };

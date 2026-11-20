@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.5)
+# BotHanzi: architektura (v0.7)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -8,7 +8,7 @@
 
 ## Model danych
 Znak: `{ hanzi, pinyin (z tonami), hsk (1–7), en, pl }`; znaczenia rozdzielone średnikiem.
-Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, `srs{key:{box,due}}`, `activity{date:n}`, `theme`.
+Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, `srs{key:{box,due}}`, `activity{date:n}`, `log{date:{r,g,ok,t}}`, `theme`, `showTr`.
 
 ## Zachowanie
 - Odblokowanie poziomu: poprzedni poziom opanowany w ≥ 50% (miękka blokada, podgląd zawsze możliwy).
@@ -26,7 +26,7 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 ## Zmiany w v0.3
 - Start połączony z Odkrywaj (zakładki: Start, Znane, Fiszki). Poziomy HSK to listy rozwijane z wszystkimi znakami poziomu; znane na różowo; blokada wyższych poziomów usunięta; zawartość listy renderowana dopiero po otwarciu (wydajność przy ~2500 znaków).
 - Karta znaku: dwa systemy pisma obok siebie w kwadratach tej samej wielkości (pismo drukowane i animowana kolejność kresek). Animacja zapętla się sama, bez przycisku „Powtórz”.
-- Seria dni: płomienie w 5 stopniach (0, 1–2, 3–6, 7–13, 14+ dni): od szkicu, przez mini płomyczki, po duży ogień z iskrami i poświatą. `prefers-reduced-motion` wyłącza animacje.
+- Seria dni: pięć stopni tła (0, 1–2, 3–6, 7–13, 14+ dni); od v0.7 wizualizują ją lampiony zamiast płomieni.
 
 ## Zmiany w v0.4
 - Tło w stylu chińskim: hero z górami krasowymi, pagodą, bambusem, chmurami w stylu tradycyjnym i księżycową bramą; liczba drzew nadal rośnie z liczbą znanych znaków. Kafelek serii ma subtelny wzór meander (`--meander`, data-URI) pod płomieniami.
@@ -43,6 +43,20 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Kreski dla wszystkich 200 znaków (`strokes/`), zdania: 142, każdy znak HSK 1 ma co najmniej jedno.
 - `tools/hsk-missing.py`: lista brakujących znaków wybranego poziomu.
 - Service worker: `bothanzi-v6`. Uwaga na rozmiar: precache kresek to dziś ok. 0,8 MB; przy ~2500 znaków wyniesie ok. 10 MB, więc warto wtedy przejść na cache przy pierwszym użyciu.
+
+## Zmiany w v0.6
+- Usunięte nazwy poziomów HSK (Ściółka, Podszycie…); lista poziomów pokazuje tylko „HSK n” i licznik.
+- Kafel serii to karta: seria z płomieniami, kalendarz nauki w stylu GitHuba (18 tygodni, poniedziałek–niedziela, 5 poziomów intensywności wg liczby powtórek, dotknięcie dnia pokazuje „liczba kart, czas”) i sekcja „Ogółem” (czas nauki, dni nauki, retencja, powtórki).
+- Dane: `state.log[data] = { r, g, ok, t }`: r = oceniane karty, g/ok = karty liczone do retencji (powtórki i quiz; tryb „Ucz się nowych” nie liczy się do retencji), t = aktywny czas w ms. `activity` zostaje (seria) i zasila starsze dni bez `log`.
+- Czas nauki: zegar w sesjach i quizach liczy czas od pokazania karty do odpowiedzi, pojedynczy odcinek najwyżej 45 s (żeby przerwa nie zawyżała czasu); pauza, gdy karta przeglądarki jest ukryta.
+- Retencja = poprawne / ocenione w powtórkach i quizach (quiz: pełna poprawność).
+- Hero: słońce i księżycowa brama narysowane za górami (karst jest teraz nieprzezroczysty), dzięki czemu słońce wschodzi zza góry.
+- Service worker: `bothanzi-v7`.
+
+## Zmiany w v0.7
+- Płomienie serii zastąpione girlandą lampionów (nic już nie „lewituje”: lampiony wiszą na sznurze). Pierwszy sznur to dni 1–7, od 8. dnia pojawia się drugi (dni 8–14); zapalone lampiony mają różowy korpus, jasne wnętrze i poświatę, niezapalone to ciemny obrys, czyli cel na kolejne dni. Od 14 dni dochodzą migoczące iskry, a tło kafla nadal ciemnieje ku śliwce (tiery 0–4). Lampiony lekko się kołyszą, poświata pulsuje; `prefers-reduced-motion` wyłącza animacje.
+- Gradient poświaty jest wewnątrz SVG girlandy (`lampGlow`); gradienty płomieni w `index.html` są już nieużywane.
+- Service worker: `bothanzi-v8`.
 
 ## Dane kresek i licencja
 Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.

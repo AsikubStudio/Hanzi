@@ -104,7 +104,7 @@ body.in-session .tabbar { display: none; }
 .forest { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: auto; aspect-ratio: 360 / 150; z-index: -1; }
 .forest .sun { fill: var(--pink-bright); }
 .forest .ridge-back { fill: #1b4a39; }
-.forest .karst { fill: #6fb08f; opacity: .22; }
+.forest .karst { fill: #2c5d4a; }
 .forest .moongate { fill: none; stroke: var(--pink-bright); stroke-width: .8; opacity: .45; }
 .forest .cloud { fill: none; stroke: #bfe3cf; stroke-width: 1.1; stroke-linecap: round; opacity: .38; }
 .forest .pagoda { fill: #0a261c; stroke: #0a261c; }
@@ -420,58 +420,47 @@ label.num input:focus { border-color: var(--pink); outline: 0; }
 
 /* ——— Seria dni: płomienie rosną z liczbą dni ——— */
 .streak {
-  position: relative; overflow: hidden; display: flex; align-items: flex-end; min-height: 120px; padding: 18px 20px; border-radius: 20px;
+  position: relative; overflow: hidden; display: flex; align-items: flex-end; min-height: 128px; padding: 18px 20px; border-radius: 20px;
   background: linear-gradient(180deg, #0d251c, #164332); color: #eaf3ee; box-shadow: var(--shadow); isolation: isolate;
 }
-.streak-text { display: grid; gap: 0; max-width: 56%; align-self: center; }
+.streak-text { display: grid; gap: 0; max-width: 48%; align-self: center; }
 .streak-text b { font: 600 2.9rem/1 var(--serif); font-variant-numeric: tabular-nums; }
 .streak-text span { font-weight: 600; margin-top: 2px; }
 .streak-text small { color: #9fb8aa; font-size: .8rem; margin-top: 6px; line-height: 1.35; }
-.flames { position: absolute; right: 10px; bottom: 0; width: 190px; height: 112px; z-index: -1; }
-.flame {
-  position: absolute; bottom: 0; left: var(--x); width: calc(var(--h) * .667px); height: calc(var(--h) * 1px);
-  transform-origin: 50% 100%; animation: flicker 1.15s ease-in-out infinite; animation-delay: var(--d, 0s); overflow: visible;
-}
-.f-out { fill: url(#flame-out); }
-.f-in { fill: url(#flame-in); opacity: .9; }
-.flame.ghost { animation: none; opacity: .5; }
-.flame.ghost path { fill: none; stroke: #5d7a6b; stroke-width: 1.5; stroke-dasharray: 3 3; }
-.streak[data-tier="3"] .flame, .streak[data-tier="4"] .flame { animation-duration: .9s; }
-.streak[data-tier="4"] .flame { filter: drop-shadow(0 0 6px rgba(240, 122, 160, .55)); }
+.garland { position: absolute; right: 8px; top: 2px; width: min(196px, 50%); aspect-ratio: 200 / 122; z-index: -1; }
+.garland svg { display: block; width: 100%; height: 100%; }
+.cord { stroke: #7d9a8b; stroke-width: 1; opacity: .65; }
+.lamp { transform-box: fill-box; transform-origin: 50% 0; animation: sway 4.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.lamp.lit { filter: drop-shadow(0 0 4px rgba(255, 130, 175, .5)); }
+.lamp-halo { mix-blend-mode: screen; transform-box: fill-box; transform-origin: center; animation: lampglow 2.2s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.streak[data-tier="3"] .lamp-halo, .streak[data-tier="4"] .lamp-halo { animation-duration: 1.7s; }
+.streak[data-tier="4"] .lamp.lit { filter: drop-shadow(0 0 7px rgba(255, 130, 175, .75)); }
 .streak[data-tier="3"]::before, .streak[data-tier="4"]::before {
-  content: ""; position: absolute; right: -30px; bottom: -60px; width: 280px; height: 220px; z-index: -2; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 79, 139, .42), transparent); mix-blend-mode: screen; animation: glow 2.4s ease-in-out infinite;
+  content: ""; position: absolute; right: -40px; top: -50px; width: 320px; height: 250px; z-index: -2; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 79, 139, .38), transparent); mix-blend-mode: screen; animation: glow 2.4s ease-in-out infinite;
 }
 .streak[data-tier="3"]::before { opacity: .55; }
-.spark {
-  position: absolute; bottom: 24px; left: var(--x); width: 4px; height: 4px; border-radius: 50%; background: #ffc2d4;
-  opacity: 0; animation: rise 2.3s ease-out infinite; animation-delay: var(--d, 0s);
+.ember {
+  position: absolute; left: var(--x); top: var(--y); width: 3px; height: 3px; border-radius: 50%; background: #ffd9e5;
+  opacity: 0; animation: twinkle 2.4s ease-in-out infinite; animation-delay: var(--d, 0s);
 }
-@keyframes flicker {
-  0%, 100% { transform: scale(1, 1) skewX(0deg); }
-  25% { transform: scale(.95, 1.07) skewX(-2.5deg); }
-  50% { transform: scale(1.05, .93) skewX(2deg); }
-  75% { transform: scale(.98, 1.04) skewX(-1deg); }
-}
-@keyframes rise {
-  0% { transform: translateY(0) scale(1); opacity: 0; }
-  15% { opacity: .95; }
-  100% { transform: translateY(-84px) translateX(8px) scale(.3); opacity: 0; }
-}
+@keyframes sway { 0%, 100% { transform: rotate(-2.4deg); } 50% { transform: rotate(2.4deg); } }
+@keyframes lampglow { 0%, 100% { opacity: .72; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.08); } }
+@keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(.4); } 50% { opacity: .95; transform: scale(1.3); } }
 @keyframes glow { 0%, 100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
-@media (prefers-reduced-motion: reduce) { .flame, .spark, .streak::before { animation: none !important; } .spark { display: none; } }
+@media (prefers-reduced-motion: reduce) { .lamp, .lamp-halo, .ember, .streak::before { animation: none !important; } .ember { display: none; } }
 
 /* Im dłuższa seria, tym cieplejsze tło kafla (zieleń → śliwka), żeby poświata nie robiła się szara. */
-.streak[data-tier="3"] { background: linear-gradient(180deg, #11231c, #2c1a2b); }
-.streak[data-tier="4"] { background: linear-gradient(180deg, #170f20, #4b1839); }
+
 
 /* ——— Chiński motyw tła kafla serii: wzór meandra (huiwen) ——— */
 .streak {
   --meander: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M2 20V2H20V16H7V7H14V11' fill='none' stroke='%23bfe3cf' stroke-opacity='.075' stroke-width='1.4'/></svg>");
 }
-.streak[data-tier="0"], .streak[data-tier="1"], .streak[data-tier="2"] { background: var(--meander), linear-gradient(180deg, #0d251c, #164332); }
-.streak[data-tier="3"] { background: var(--meander), linear-gradient(180deg, #11231c, #2c1a2b); }
-.streak[data-tier="4"] { background: var(--meander), linear-gradient(180deg, #170f20, #4b1839); }
+.streak-card { --meander: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M2 20V2H20V16H7V7H14V11' fill='none' stroke='%23bfe3cf' stroke-opacity='.075' stroke-width='1.4'/></svg>"); }
+.streak-card[data-tier="0"], .streak-card[data-tier="1"], .streak-card[data-tier="2"] { background: var(--meander), linear-gradient(180deg, #0d251c, #164332); }
+.streak-card[data-tier="3"] { background: var(--meander), linear-gradient(180deg, #11231c, #2c1a2b); }
+.streak-card[data-tier="4"] { background: var(--meander), linear-gradient(180deg, #170f20, #4b1839); }
 
 /* ——— Zdanie przykładowe ——— */
 .sentence { position: relative; display: grid; gap: 2px; justify-items: center; text-align: center; margin-top: 14px; padding: 12px 14px; width: 100%; border-radius: 14px; background: var(--surface-2); }
@@ -497,3 +486,35 @@ label.num input:focus { border-color: var(--pink); outline: 0; }
 .sentence:not(.show-tr) .s-pl { display: none; }
 .card .tr-btn { top: 2px; right: 2px; }
 .card:not(.is-flipped) .card-back { pointer-events: none; }
+
+/* ——— Kafel serii jako karta: seria + kalendarz + ogółem ——— */
+.streak-card { position: relative; overflow: hidden; border-radius: 20px; color: #eaf3ee; box-shadow: var(--shadow); isolation: isolate; }
+.streak-card .streak { background: none; box-shadow: none; border-radius: 0; overflow: visible; }
+.cal { padding: 4px 20px 16px; }
+.cal-cols { display: grid; grid-template-columns: 20px repeat(18, minmax(0, 1fr)); gap: 3px; max-width: 460px; }
+.cal-months { height: 14px; margin-bottom: 3px; font-size: .64rem; color: #9fb8aa; }
+.cal-m { white-space: nowrap; overflow: visible; }
+.cal-w { font-size: .6rem; color: #86a495; align-self: center; line-height: 1; }
+.cal-c { display: block; width: 100%; aspect-ratio: 1; border-radius: 3px; border: 0; padding: 0; background: rgba(255, 255, 255, .07); }
+.cal-c.l1 { background: rgba(240, 122, 160, .32); }
+.cal-c.l2 { background: rgba(240, 122, 160, .55); }
+.cal-c.l3 { background: rgba(240, 122, 160, .8); }
+.cal-c.l4 { background: var(--pink-bright); }
+.cal-c.future { background: none; }
+button.cal-c { cursor: pointer; }
+.cal-c.today { outline: 1px solid rgba(255, 255, 255, .55); outline-offset: 1px; }
+.cal-c.sel { box-shadow: 0 0 0 2px #fff; }
+.cal-c:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.cal-detail { margin-top: 10px; font-size: .86rem; color: #cfe3d8; }
+.cal-detail b { color: #fff; font-weight: 650; }
+.cal-legend { display: flex; align-items: center; gap: 3px; margin-top: 8px; font-size: .64rem; color: #86a495; }
+.cal-legend .cal-c { width: 11px; }
+.cal-legend span:first-child { margin-right: 3px; }
+.cal-legend span:last-child { margin-left: 3px; }
+.overall { padding: 14px 20px 18px; border-top: 1px solid rgba(255, 255, 255, .09); background: rgba(0, 0, 0, .12); }
+.overall h3 { font-size: .8rem; font-weight: 600; color: #9fb8aa; margin-bottom: 10px; }
+.overall-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 18px; }
+.overall-grid b { display: block; font: 600 1.45rem/1.1 var(--serif); font-variant-numeric: tabular-nums; }
+.overall-grid span { display: block; margin-top: 2px; font-size: .78rem; color: #9fb8aa; }
+.overall-note { margin-top: 12px; font-size: .7rem; color: #86a495; line-height: 1.35; }
+.tier-count { margin-left: auto; }

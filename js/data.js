@@ -5,13 +5,13 @@
 // Kolejność w poziomie: od najczęstszych. Wiele odczytań w jednym polu: „jiào; jué”.
 
 export const LEVELS = [
-  { n: 1, label: 'HSK 1', name: 'Ściółka' },
-  { n: 2, label: 'HSK 2', name: 'Podszycie' },
-  { n: 3, label: 'HSK 3', name: 'Młodnik' },
-  { n: 4, label: 'HSK 4', name: 'Drzewostan' },
-  { n: 5, label: 'HSK 5', name: 'Puszcza' },
-  { n: 6, label: 'HSK 6', name: 'Szczyt' },
-  { n: 7, label: 'HSK 6+', name: 'Ostoja jelenia' },
+  { n: 1, label: 'HSK 1' },
+  { n: 2, label: 'HSK 2' },
+  { n: 3, label: 'HSK 3' },
+  { n: 4, label: 'HSK 4' },
+  { n: 5, label: 'HSK 5' },
+  { n: 6, label: 'HSK 6' },
+  { n: 7, label: 'HSK 6+' },
 ];
 
 const RAW = [
