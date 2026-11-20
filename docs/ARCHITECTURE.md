@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.8)
+# BotHanzi: architektura (v0.11)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -58,13 +58,24 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Gradient poświaty jest wewnątrz SVG girlandy (`lampGlow`); gradienty płomieni w `index.html` są już nieużywane.
 - Service worker: `bothanzi-v8`.
 
-## Zmiany w v0.8
+## Zmiany w v0.8 (miasto usunięte w v0.11)
 - Miasto lampionów (`js/city.js`): od 15. dnia serii w tle kafla rośnie nocna ulica w jednopunktowej perspektywie, jeden nowy element dziennie, do pełnej sceny w 365. dniu (351 kroków). Rzut perspektywiczny jest liczony ze współrzędnych 3D (kamera na wysokości 1,5 nad jezdnią, punkt zbiegu na horyzoncie, ulica o półszerokości 8), więc elewacje, okna, neony, lampy i jezdnia zbiegają się poprawnie.
 - Kolejność budowy: droga i niebo (dzień 15), 24 lampy uliczne od widza ku horyzontowi, odległa panorama za końcem ulicy, 16 kwartałów od horyzontu ku widzowi (bryła z witrynami parteru, okna zapalane po jednym lub po kilka w dalekich kwartałach, dwa neony z hanzi HSK 1 prostopadłe do ulicy z odbiciem na mokrej jezdni), osiem sznurów lampionów zawieszonych w poprzek ulicy (lampion po lampionie), sześć samochodów, brama pailou, na końcu księżyc.
 - Scena jest deterministyczna (stały generator pseudolosowy): dzień serii jednoznacznie określa obraz. Pod numerem serii widać procent ukończenia miasta.
 - Układ: SVG 360×270 przy dolnej krawędzi kafla (maksymalnie 520 px szerokości, z zanikaniem u góry i po bokach); kafel dostaje dolny odstęp, żeby sekcja „Ogółem” nie nakładała się na scenę. Pełna scena to ok. 137 KB znaczników i 1,5 tys. węzłów (generowanie poniżej 50 ms).
 - Animacje: migotanie neonów, pulsowanie lamp i lampionów; `prefers-reduced-motion` je wyłącza.
 - Service worker: `bothanzi-v10` (w app shellu jest `js/city.js`).
+
+## Zmiany w v0.10
+- Kafel serii ma dwie części: „hero” (`.streak`: miasto w tle tekstu, girlanda, numer serii) oraz zwijaną sekcję „Kalendarz i statystyki” (`.streak-more`, domyślnie zwinięta; stan pamiętany do końca sesji w `ui.js`, akcja `toggle-stats`).
+- Miasto (`.city`) jest teraz tłem hero i nie wchodzi pod kalendarz. Pod tekstem leży ciemny gradient, żeby neony nie gryzły liter.
+- Girlanda zajmuje całą szerokość kafla: sznur to SVG bez proporcji (`preserveAspectRatio="none"`, `vector-effect: non-scaling-stroke`), a lampiony to osobne małe SVG o stałym rozmiarze, ustawione w procentach szerokości. Drugi rząd (dni 8–14) jest przesunięty między lampiony pierwszego.
+- Zwijanie: `grid-template-rows 0fr→1fr`, ukryta część ma `inert` i `visibility: hidden`, więc nie łapie fokusa.
+
+## Zmiany w v0.11
+- Miasto lampionów (`js/city.js`) zostało usunięte, podobnie jak lampiony w głębi (próbowane w wersjach roboczych). Zostają dwa sznury lampionów na całą szerokość kafla: dni 1–7 i dni 8–14, w lekkiej perspektywie (drugi sznur jest dalej: odrobinę węższy, niżej, z mniejszymi lampionami). Szczegóły: `rowGeom` w `ui.js`. Od 14 dni dochodzą migoczące iskry.
+- Kafel serii to hero (numer serii + girlanda) oraz zwijana sekcja „Kalendarz i statystyki” (domyślnie zwinięta, stan pamiętany do końca sesji). Belka rozwijania i sekcja „Ogółem” nie mają już linii ani ciemniejszego tła, więc gradient kafla przechodzi płynnie w sekcję statystyk.
+- Service worker: `bothanzi-v12`.
 
 ## Dane kresek i licencja
 Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.

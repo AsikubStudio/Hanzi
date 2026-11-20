@@ -8,7 +8,7 @@ import { gradeAnswer } from './quiz.js';
 import { mountStrokes } from './strokes.js';
 import {
   tabbarHTML, homeView, knownView, cardsView, tierBodyHTML, resultsHTML, knownGridHTML, quizCount,
-  sheetView, formView, dayDetail, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
+  sheetView, formView, dayDetail, setStatsOpen, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
 } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -330,6 +330,14 @@ const ACTIONS = {
     document.querySelectorAll('.cal-c.sel').forEach((n) => n.classList.remove('sel'));
     el.classList.add('sel');
     document.querySelector('.cal-detail').innerHTML = dayDetail(el.dataset.d);
+  },
+  'toggle-stats': (el) => {
+    const card = el.closest('.streak-card');
+    const open = !card.classList.contains('is-open');
+    card.classList.toggle('is-open', open);
+    el.setAttribute('aria-expanded', String(open));
+    card.querySelector('.streak-more-in').toggleAttribute('inert', !open);
+    setStatsOpen(open);
   },
   'toggle-tr': () => {
     setShowTr(!state.showTr);

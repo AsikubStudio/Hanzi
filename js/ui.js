@@ -5,7 +5,6 @@ import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
 import { search } from './search.js';
 import { toneOf, TONE_LABEL } from './quiz.js';
 import { bestSentence } from './sentences.js';
-import { cityHTML, cityPercent } from './city.js';
 
 export const esc = (s = '') =>
   String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -155,43 +154,67 @@ function lampion(x, y, sc, lit, i) {
   </g></g>`;
 }
 
-// Girlanda: pierwszy sznur to dni 1–7, drugi (od 8. dnia) dni 8–14. Od 14 dni lampiony migoczą iskrami.
+// Girlanda: dwa sznury na całą szerokość kafla, w lekkiej perspektywie (patrzymy w górę wzdłuż ulicy, punkt zbiegu pod kafelkiem).
+// Sznur 1 (dni 1–7) jest bliżej, sznur 2 (dni 8–14) dalej, więc jest odrobinę węższy, niżej i z mniejszymi lampionami.
+// Sznur rozciąga się z kontenerem (SVG bez proporcji), lampiony mają stały rozmiar w px i stoją w procentach szerokości.
+// Zapalone lampiony to dni serii, ciemne to cel na kolejne dni. Od 14 dni dochodzą migoczące iskry.
+const PER = 7, G = 1.12, VPX = 52, VPY = 472, Y0 = 5, A0 = 54;
+const GARLAND_H1 = 62, GARLAND_H2 = 102;
+export const garlandHeight = (days) => (days > 7 ? GARLAND_H2 : GARLAND_H1);
+
+function rowGeom(r) {
+  const sd = Math.pow(G, -r);
+  const y = VPY - (VPY - Y0) * sd;
+  return { y, sag: 9 * sd, sc: 0.92 * sd, xAt: (u) => VPX + (50 - VPX + u * A0) * sd };
+}
+
 function garlandHTML(days) {
-  const row = (y0, sag, x0, x1, n, sc, lit, off) => {
-    const w = x1 - x0;
-    let out = `<path class="cord" d="M${x0} ${y0}Q${(x0 + x1) / 2} ${y0 + 2 * sag} ${x1} ${y0}" fill="none"/>`;
-    for (let k = 0; k < n; k++) {
-      const t = (k + 0.5) / n;
-      out += lampion(x0 + w * t, y0 + 2 * sag * t * (1 - t) + 1, sc, k < lit, off + k);
+  const h = garlandHeight(days);
+  const rows = [{ r: 0, lit: Math.min(days, PER) }];
+  if (days > 7) rows.push({ r: 1, lit: Math.min(days - 7, PER) });
+  let cords = '', lamps = '';
+  for (const row of rows.slice().reverse()) { // dalszy sznur najpierw, żeby bliższy go zasłaniał
+    const { y, sag, sc, xAt } = rowGeom(row.r);
+    cords += `<path class="cord" d="M${xAt(-1).toFixed(2)} ${y.toFixed(1)}Q${xAt(0).toFixed(2)} ${(y + 2 * sag).toFixed(1)} ${xAt(1).toFixed(2)} ${y.toFixed(1)}" fill="none" vector-effect="non-scaling-stroke"/>`;
+    for (let k = 0; k < PER; k++) {
+      const t = (k + 0.5 + (row.r % 2) * 0.5) / (PER + (row.r % 2 ? 1 : 0));
+      const ly = y + 2 * sag * t * (1 - t) + 1;
+      const w = 28 * sc;
+      lamps += `<svg class="lamp-box" style="left:${xAt(t * 2 - 1).toFixed(2)}%;top:${(ly - 8 * sc).toFixed(1)}px;width:${w.toFixed(1)}px;height:${(52 * sc).toFixed(1)}px;margin-left:${(-w / 2).toFixed(1)}px" viewBox="-14 -8 28 52" overflow="visible">${lampion(0, 0, 1, k < row.lit, row.r * PER + k)}</svg>`;
     }
-    return out;
-  };
-  const first = row(6, 12, 2, 198, 7, 0.92, Math.min(days, 7), 0);
-  const second = days > 7 ? row(66, 10, 14, 186, 7, 0.78, Math.min(days - 7, 7), 7) : '';
+  }
   const sparks = days >= 14 ? Array.from({ length: 9 }, (_, i) =>
-    `<i class="ember" style="--x:${(8 + ((i * 53) % 86)).toFixed(0)}%;--y:${(14 + ((i * 37) % 70)).toFixed(0)}%;--d:${((i * 0.41) % 2.4).toFixed(2)}s"></i>`).join('') : '';
-  return `<div class="garland" aria-hidden="true">
-    <svg viewBox="0 0 200 122" overflow="visible">
+    `<i class="ember" style="--x:${(4 + ((i * 53) % 92)).toFixed(0)}%;--y:${(14 + ((i * 37) % 70)).toFixed(0)}%;--d:${((i * 0.41) % 2.4).toFixed(2)}s"></i>`).join('') : '';
+  return `<div class="garland" aria-hidden="true" style="height:${h}px">
+    <svg class="cord-svg" viewBox="0 0 100 ${h}" preserveAspectRatio="none" overflow="visible">
       <defs><radialGradient id="lampGlow"><stop offset="0" stop-color="#ff8fb4" stop-opacity=".62"/><stop offset="1" stop-color="#ff8fb4" stop-opacity="0"/></radialGradient></defs>
-      ${first}${second}
-    </svg>${sparks}
+      ${cords}
+    </svg>${lamps}${sparks}
   </div>`;
 }
+
+// Stan rozwinięcia sekcji „Kalendarz i statystyki” (domyślnie zwinięta; pamiętany do końca sesji).
+let statsOpen = false;
+export const setStatsOpen = (v) => { statsOpen = v; };
 
 function streakTile(days, doneToday) {
   const tier = days === 0 ? 0 : days < 3 ? 1 : days < 7 ? 2 : days < 14 ? 3 : 4;
   const note = days === 0
     ? 'Zrób dziś jedną powtórkę, żeby zapalić pierwszy lampion.'
     : doneToday ? 'Dzisiejsza powtórka zaliczona.' : 'Ćwicz dziś, żeby nie zgasł lampion.';
-  const city = days > 14 ? (cityPercent(days) >= 100 ? 'Miasto lampionów jest gotowe.' : `Miasto lampionów: ${cityPercent(days)}%`) : '';
-  return `<section class="streak-card${days > 14 ? ' has-city' : ''}" data-tier="${tier}" aria-label="Seria i statystyki nauki">
-    ${cityHTML(days)}
-    <div class="streak" data-tier="${tier}" role="group" aria-label="Seria: ${days} ${dayWord(days)}">
-      <div class="streak-text"><b>${days}</b><span>${dayWord(days)} serii</span><small>${note}</small>${city ? `<small class="city-note">${city}</small>` : ''}</div>
+  return `<section class="streak-card${statsOpen ? ' is-open' : ''}" data-tier="${tier}" aria-label="Seria i statystyki nauki">
+    <div class="streak" data-tier="${tier}" style="--gh:${garlandHeight(days)}px" role="group" aria-label="Seria: ${days} ${dayWord(days)}">
       ${garlandHTML(days)}
+      <div class="streak-text"><b>${days}</b><span>${dayWord(days)} serii</span><small>${note}</small></div>
     </div>
-    ${calendarHTML()}
-    ${overallHTML()}
+    <button class="streak-toggle" type="button" data-act="toggle-stats" aria-expanded="${statsOpen}" aria-controls="streak-more">
+      <span>Kalendarz i statystyki</span>
+      <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="streak-more" id="streak-more"><div class="streak-more-in"${statsOpen ? '' : ' inert'}>
+      ${calendarHTML()}
+      ${overallHTML()}
+    </div></div>
   </section>`;
 }
 
