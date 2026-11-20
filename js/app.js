@@ -1,6 +1,6 @@
 import { BY_HANZI } from './data.js';
 import {
-  state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logActivity, setTheme,
+  state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logActivity, setTheme, setShowTr,
 } from './store.js';
 import { grade, dueDeck, knownDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
 import { search } from './search.js';
@@ -198,6 +198,7 @@ function bindCard() {
   };
 
   card.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('[data-act]')) return; // przyciski na karcie (np. tłumaczenie) nie przewracają ani nie przeciągają karty
     drag = true; moved = false; sx = e.clientX; sy = e.clientY; dx = 0; dy = 0;
     card.setPointerCapture(e.pointerId);
     card.classList.add('dragging');
@@ -222,6 +223,7 @@ function bindCard() {
   card.addEventListener('pointerup', release);
   card.addEventListener('pointercancel', release);
   card.addEventListener('keydown', (e) => {
+    if (e.target !== card) return;
     if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
   });
 }
@@ -303,6 +305,13 @@ const ACTIONS = {
   open: (el) => openChar(el.dataset.h),
   'close-sheet': closeSheet,
   theme: cycleTheme,
+  'toggle-tr': () => {
+    setShowTr(!state.showTr);
+    document.querySelectorAll('.sentence').forEach((d) => {
+      d.classList.toggle('show-tr', state.showTr);
+      d.querySelector('.tr-btn')?.setAttribute('aria-pressed', String(state.showTr));
+    });
+  },
   'toggle-known': (el) => {
     const h = el.dataset.h;
     toggleKnown(h);

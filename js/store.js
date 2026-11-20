@@ -5,10 +5,11 @@
 // srs:      { [key]: { box, due } }              powtórki (key = hanzi lub „c:<id>”)
 // activity: { 'YYYY-MM-DD': liczba ocenionych kart }
 // theme:    'auto' | 'light' | 'dark'
+// showTr:   czy pokazywać tłumaczenie zdań przykładowych (ikona tłumacza w rogu zdania)
 
 const KEY = 'bothanzi:v1';
 
-const defaults = () => ({ known: {}, hard: [], custom: [], srs: {}, activity: {}, theme: 'auto' });
+const defaults = () => ({ known: {}, hard: [], custom: [], srs: {}, activity: {}, theme: 'auto', showTr: false });
 
 function load() {
   try {
@@ -71,6 +72,11 @@ export function streak() {
   let offset = state.activity[dayStamp()] ? 0 : -1;
   while (state.activity[dayStamp(offset)]) { n++; offset--; }
   return n;
+}
+
+export function setShowTr(v) {
+  state.showTr = Boolean(v);
+  save();
 }
 
 export function setTheme(t) {

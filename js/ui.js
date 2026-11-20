@@ -4,6 +4,7 @@ import { state, isKnown, isHard, streak, dayStamp } from './store.js';
 import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
 import { search } from './search.js';
 import { toneOf, TONE_LABEL } from './quiz.js';
+import { bestSentence } from './sentences.js';
 
 export const esc = (s = '') =>
   String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -20,6 +21,7 @@ export const ICONS = {
   close: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
   check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  translate: svg('<path d="M3.5 5.5h9M8 3.5v2M5.2 5.5c.6 3.2 2.8 5.6 5.8 7M11 5.5c-.6 3-3 5.8-7 7.5"/><path d="M12.5 20.5l3.6-9 3.6 9M13.9 17.4h4.4"/>'),
   chevron: svg('<path d="M7 10l5 5 5-5"/>'),
 };
 
@@ -56,6 +58,38 @@ export function rankInfo(known) {
 // ——— Las: im więcej znanych znaków, tym gęstszy drzewostan na horyzoncie ———
 const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
+// Motywy chińskie: krasowe szczyty (shan shui), pagoda, bambus i chmury w stylu xiangyun.
+function pagoda(x, y, sc) {
+  let d = '';
+  for (let k = 0; k < 3; k++) {
+    const y0 = -k * 13;
+    const bw = 8 - k * 1.6;
+    const rw = 15 - k * 2.4;
+    d += `<rect x="${-bw}" y="${y0 - 10}" width="${bw * 2}" height="9"/>`;
+    d += `<path d="M${-rw} ${y0 - 12}Q${-bw} ${y0 - 12} 0 ${y0 - 19}Q${bw} ${y0 - 12} ${rw} ${y0 - 12}Q0 ${y0 - 8} ${-rw} ${y0 - 12}Z"/>`;
+  }
+  d += `<rect x="-13" y="-1" width="26" height="3"/><path d="M0 -45V-55" stroke-width="1.4"/><circle cx="0" cy="-47" r="1.6"/>`;
+  return `<g class="pagoda" transform="translate(${x} ${y}) scale(${sc})">${d}</g>`;
+}
+
+function bamboo(x, h, lean = 0) {
+  const top = 152 - h;
+  let d = `<path class="stalk" d="M${x} 152Q${x + lean / 2} ${152 - h / 2} ${x + lean} ${top}"/>`;
+  for (let ny = 150 - 14; ny > top; ny -= 14) {
+    const t = (152 - ny) / h;
+    const nx = x + lean * t * t * 0.9;
+    d += `<path class="node" d="M${(nx - 2.2).toFixed(1)} ${ny}h4.4"/>`;
+    if (ny < top + 46) {
+      d += `<path class="leaf" d="M0 0Q8 -3 17 2Q8 4.5 0 0Z" transform="translate(${nx.toFixed(1)} ${ny}) rotate(${-24 - (ny % 3) * 8})"/>`;
+      d += `<path class="leaf" d="M0 0Q-8 -3 -17 2Q-8 4.5 0 0Z" transform="translate(${nx.toFixed(1)} ${ny - 5}) rotate(${22 + (ny % 4) * 6})"/>`;
+    }
+  }
+  return `<g class="bamboo">${d}</g>`;
+}
+
+const cloud = (x, y, sc) =>
+  `<path class="cloud" transform="translate(${x} ${y}) scale(${sc})" d="M0 9C-7 9-7 0 1 0C1-7 12-8 14-1C19-4 27 0 24 6C30 6 30 12 24 12H4C-2 12-3 9 0 9ZM24 12C32 12 36 8 40 10C43 12 41 17 37 16C35 15.500 35.500 13 37.500 13"/>`;
+
 function forestSVG(known) {
   const n = Math.min(26, 3 + Math.floor(known / 2));
   let trees = '';
@@ -71,10 +105,19 @@ function forestSVG(known) {
     trees += `<polygon class="${rnd(i + 3) > 0.5 ? 't1' : 't2'}" points="${pts}"/>`;
   }
   return `<svg class="forest" viewBox="0 30 360 150" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-    <defs><radialGradient id="halo"><stop offset="0" stop-color="#f07aa0" stop-opacity=".55"/><stop offset="1" stop-color="#f07aa0" stop-opacity="0"/></radialGradient></defs>
+    <defs>
+      <radialGradient id="halo"><stop offset="0" stop-color="#f07aa0" stop-opacity=".55"/><stop offset="1" stop-color="#f07aa0" stop-opacity="0"/></radialGradient>
+      <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfeadb" stop-opacity="0"/><stop offset=".55" stop-color="#cfeadb" stop-opacity=".16"/><stop offset="1" stop-color="#cfeadb" stop-opacity="0"/></linearGradient>
+    </defs>
+    <path class="karst" d="M0 128V104Q8 100 14 84Q18 70 26 66Q34 64 38 80Q42 96 54 100Q60 80 66 62Q72 48 80 50Q88 54 90 72Q94 96 108 104Q122 100 130 88Q138 76 146 82Q152 92 156 104L170 112Q196 108 206 94Q214 82 222 86Q230 92 232 104Q246 112 262 106Q272 100 276 88Q282 70 292 66Q300 64 304 82Q308 100 322 106Q340 104 352 92L360 88V128Z"/>
+    <rect x="0" y="96" width="360" height="26" fill="url(#mist)"/>
     <circle cx="282" cy="80" r="46" fill="url(#halo)"/><circle class="sun" cx="282" cy="80" r="18"/>
+    <circle class="moongate" cx="282" cy="80" r="27"/>
+    ${cloud(236, 60, 0.8)}${cloud(318, 100, 0.55)}${cloud(150, 118, 0.5)}
     <path class="ridge-back" d="M0 118C40 92 82 108 124 94S204 78 252 98S330 90 360 102V180H0Z"/>
+    ${pagoda(167, 85, 0.62)}
     ${trees}
+    ${bamboo(334, 86, 5)}${bamboo(343, 70, -2)}${bamboo(351, 92, 4)}${bamboo(14, 58, 3)}${bamboo(22, 44, -2)}
     <path class="ridge-front" d="M0 152C60 136 112 150 172 140S292 128 360 144V180H0Z"/>
   </svg>`;
 }
@@ -291,6 +334,26 @@ export function resultsHTML(list, query) {
     </button></li>`).join('')}</ul>`;
 }
 
+// ——— Zdanie przykładowe: znak pogrubiony na różowo, nieznane znaki z bazy przyciemnione ———
+export function sentenceHTML(hanzi) {
+  const st = bestSentence(hanzi);
+  if (!st) return '';
+  let hasUnknown = false;
+  const zh = [...st.zh].map((ch) => {
+    if (ch === hanzi) return `<mark class="s-t">${esc(ch)}</mark>`;
+    if (BY_HANZI.has(ch) && !isKnown(ch)) { hasUnknown = true; return `<span class="s-u">${esc(ch)}</span>`; }
+    return esc(ch);
+  }).join('');
+  const on = state.showTr;
+  return `<div class="sentence${on ? ' show-tr' : ''}">
+    <button class="tr-btn" type="button" data-act="toggle-tr" aria-pressed="${on}" aria-label="Pokaż tłumaczenie zdania" title="Tłumaczenie">${ICONS.translate}</button>
+    <p class="s-zh" lang="zh">${zh}</p>
+    <p class="s-py">${esc(st.py)}</p>
+    <p class="s-pl">${esc(st.pl)}</p>
+    ${hasUnknown ? '<p class="s-note">Przyciemnione znaki jeszcze nie są znane.</p>' : ''}
+  </div>`;
+}
+
 // ——— Karta znaku (arkusz od dołu) ———
 export function sheetView(c) {
   const lv = LEVELS.find((l) => l.n === c.hsk);
@@ -306,6 +369,7 @@ export function sheetView(c) {
       <p class="sheet-py">${esc(c.pinyin)}</p>
       <p class="pill">${lv ? lv.label : ''}</p>
       <dl class="meanings"><div><dt>Polski</dt><dd>${esc(c.pl)}</dd></div><div><dt>English</dt><dd>${esc(c.en)}</dd></div></dl>
+      ${sentenceHTML(c.hanzi)}
       <div class="btn-col">
         <button class="btn primary" data-act="toggle-known" data-h="${esc(c.hanzi)}">${known ? 'Usuń ze znanych' : 'Oznacz jako znany'}</button>
         <button class="btn" data-act="toggle-hard" data-h="${esc(c.hanzi)}">${hard ? 'Usuń z trudnych' : 'Dodaj do trudnych'}</button>
@@ -351,6 +415,7 @@ export function sessionView(S) {
           <p class="card-pl">${esc(c.pl)}</p>
           <p class="card-en">${esc(c.en)}</p>
           ${c.note ? `<p class="card-note">${esc(c.note)}</p>` : ''}
+          ${c.key.startsWith('c:') ? '' : sentenceHTML(c.hanzi)}
         </div>
         <p class="card-hint">Dotknij, aby odkryć</p>
         <span class="stamp stamp-yes">Znam</span><span class="stamp stamp-no">${m.left}</span><span class="stamp stamp-skip">Dalej</span>

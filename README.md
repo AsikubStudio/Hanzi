@@ -22,6 +22,7 @@ Po zmianie plików podbij `VERSION` w `sw.js`, żeby użytkownicy dostali świe�
 - `js/quiz.js` — ocena quizu (pinyin, ton, znaczenie PL/EN)
 - `js/strokes.js` — animacja kolejności kresek (SVG, bez zależności)
 - `strokes/` — dane kresek per znak (+ `index.json`, licencja Arphic); `tools/build-strokes.mjs` generuje je z hanzi-writer-data
+- `js/sentences.js` — zdania przykładowe i wybór zdania pod znane znaki
 - `js/ui.js` — widoki (HTML, w tym Start z poziomami i serią), `js/app.js` — router, zdarzenia, sesje (fiszki, quiz)
 - `docs/ARCHITECTURE.md` — decyzje i plan dalszych kroków
 

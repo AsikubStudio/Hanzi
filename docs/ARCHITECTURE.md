@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.3)
+# BotHanzi: architektura (v0.4)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -27,6 +27,14 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Start połączony z Odkrywaj (zakładki: Start, Znane, Fiszki). Poziomy HSK to listy rozwijane z wszystkimi znakami poziomu; znane na różowo; blokada wyższych poziomów usunięta; zawartość listy renderowana dopiero po otwarciu (wydajność przy ~2500 znaków).
 - Karta znaku: dwa systemy pisma obok siebie w kwadratach tej samej wielkości (pismo drukowane i animowana kolejność kresek). Animacja zapętla się sama, bez przycisku „Powtórz”.
 - Seria dni: płomienie w 5 stopniach (0, 1–2, 3–6, 7–13, 14+ dni): od szkicu, przez mini płomyczki, po duży ogień z iskrami i poświatą. `prefers-reduced-motion` wyłącza animacje.
+
+## Zmiany w v0.4
+- Tło w stylu chińskim: hero z górami krasowymi, pagodą, bambusem, chmurami w stylu tradycyjnym i księżycową bramą; liczba drzew nadal rośnie z liczbą znanych znaków. Kafelek serii ma subtelny wzór meander (`--meander`, data-URI) pod płomieniami.
+- Zdania przykładowe (`js/sentences.js`, 72 zdania): pokazują się w karcie znaku i na odwrocie fiszki (poza własnymi fiszkami). `bestSentence(hanzi)` wybiera zdanie z najmniejszą liczbą nieznanych znaków z bazy, potem z największą liczbą znanych, potem najkrótsze. Znaki spoza bazy są neutralne; nieznane znaki z bazy są przygaszone (kropkowane podkreślenie), szukany znak na różowo. Zdanie zmienia się po oznaczeniu kolejnych znaków jako znane.
+- Tłumaczenie zdań to opcja: ikona tłumacza w prawym górnym rogu pola zdania pokazuje/ukrywa polskie tłumaczenie (pinyin zostaje widoczny). Wybór jest globalny i zapamiętany (`state.showTr`, domyślnie wyłączone); przełączanie nie przerysowuje widoku, więc nie przewraca fiszki ani nie restartuje animacji kresek.
+- Zdanie jest współdzielone: indeks obejmuje każdy znak z bazy występujący w zdaniu, więc zdanie użyte dla 病 (np. 他病了，要吃药。) jest też kandydatem dla 他 i 药; wygrywa to z najmniejszą liczbą nieznanych znaków.
+- Przy rozbudowie bazy do ~2500 znaków trzeba dopisać zdania (każdy znak powinien mieć co najmniej jedno).
+- Service worker: `bothanzi-v5`.
 
 ## Dane kresek i licencja
 Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.
