@@ -1,17 +1,18 @@
 import { BY_HANZI } from './data.js';
 import {
-  state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logReview, logTime, setTheme, setThemeMode, setShowTr,
-  currentId, selectProfile, leaveProfile, profileInfo, setProfileName, setProfileAvatar, hasLegacy, adoptLegacy, dropLegacy, onChange, getSyncCode,
+  state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logReview, logTime, setTheme, setThemeMode, setShowTr, setLearnPref,
+  currentId, selectProfile, leaveProfile, profileInfo, setProfileName, setProfileAvatar, hasLegacy, adoptLegacy, dropLegacy, onChange, getSyncCode, setRemember,
 } from './store.js';
 import { initSync, syncNow, connect, disconnect, newCode, normalizeCode, validCode, prettyCode, getStatus, onStatus } from './sync.js';
 import { fileToAvatar } from './avatar.js';
-import { grade, dueDeck, knownDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
+import { speak } from './speak.js';
+import { grade, dueDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
 import { search } from './search.js';
 import { gradeAnswer } from './quiz.js';
 import { normalizeTheme, themeAttr, themeMeta, effectiveMode } from './themes.js';
 import { mountStrokes } from './strokes.js';
 import {
-  tabbarHTML, homeView, knownView, cardsView, tierBodyHTML, resultsHTML, knownGridHTML, quizCount,
+  tabbarHTML, homeView, knownView, hardView, tierBodyHTML, resultsHTML, knownGridHTML, hardGridHTML, quizCount, learnSheetView, learnCount, learnTodo,
   sheetView, formView, themeSheetView, avatarHTML, profilePickerView, profileSheetView, syncSheetView, dayDetail, setStatsOpen, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
 } from './ui.js';
 
@@ -36,15 +37,17 @@ const ui = {
   quizSize: '10',
   quizCustom: '15',
   openTiers: new Set(),
-  deckSize: 20,
-  deckLevel: 0,
+  hardLevel: 0,
+  hardQuery: '',
+  hardSearchOpen: false,
 };
 
-const VIEWS = { home: homeView, known: knownView, cards: cardsView };
+const VIEWS = { home: homeView, known: knownView, hard: hardView };
 
 // ——— Router ———
 function currentTab() {
-  const id = location.hash.replace('#/', '');
+  let id = location.hash.replace('#/', '');
+  if (id === 'cards') id = 'hard'; // stary adres zakładki „Fiszki”
   return VIEWS[id] ? id : 'home';
 }
 
@@ -159,14 +162,16 @@ function closeSheet() {
   sheetEl.addEventListener('touchstart', (e) => {
     const box = e.target.closest('.sheet');
     if (!box || e.touches.length !== 1 || matchMedia('(min-width: 900px)').matches) { g = null; return; }
-    g = { box, y: e.touches[0].clientY, x: e.touches[0].clientX, t: Date.now(), on: false, top: box.scrollTop <= 0 };
+    const y = e.touches[0].clientY;
+    // Z uchwytu (górny pasek arkusza) przesuwanie działa zawsze, z reszty tylko gdy arkusz jest przewinięty do góry.
+    g = { box, y, x: e.touches[0].clientX, t: Date.now(), on: false, top: box.scrollTop <= 0, handle: y - box.getBoundingClientRect().top < 48 };
   }, { passive: true });
   sheetEl.addEventListener('touchmove', (e) => {
     if (!g) return;
     const dy = e.touches[0].clientY - g.y;
     const dx = e.touches[0].clientX - g.x;
     if (!g.on) {
-      if (!g.top || dy < 8 || Math.abs(dy) < Math.abs(dx) || g.box.scrollTop > 0) return;
+      if (dy < 8 || Math.abs(dy) < Math.abs(dx) || !(g.handle || (g.top && g.box.scrollTop <= 0))) return;
       g.on = true;
       g.box.style.transition = 'none';
     }
@@ -238,7 +243,7 @@ function enterProfile(id) {
   pickerEl.innerHTML = '';
   appEl.inert = false;
   document.body.classList.remove('in-picker');
-  Object.assign(ui, { tab: 'home', knownLevel: 0, knownQuery: '', knownSearchOpen: false, deckLevel: 0 });
+  Object.assign(ui, { tab: 'home', knownLevel: 0, knownQuery: '', knownSearchOpen: false, hardLevel: 0, hardQuery: '', hardSearchOpen: false });
   ui.openTiers.clear();
   location.hash = '#/home';
   applyTheme();
@@ -473,6 +478,11 @@ const ACTIONS = {
   theme: openThemes,
   'set-theme': pickTheme,
   mode: toggleMode,
+  speak: (el) => {
+    const r = speak(el.dataset.t);
+    if (r === 'novoice') toast('Ten telefon nie ma chińskiego głosu. Zainstaluj go w ustawieniach mowy.');
+    else if (r === 'unsupported') toast('Ta przeglądarka nie obsługuje czytania na głos.');
+  },
   me: () => openSheet(profileSheetView(currentId())),
   'edit-profile': (el) => openSheet(profileSheetView(el.dataset.id, { picker: true })),
   'pick-profile': (el) => enterProfile(el.dataset.id),
@@ -540,12 +550,32 @@ const ACTIONS = {
     Q.miss.forEach((c) => { if (!isHard(c.hanzi)) toggleHard(c.hanzi); });
     toast('Dodano błędne znaki do trudnych');
   },
-  'deck-level': (el) => { ui.deckLevel = Number(el.dataset.lv); render({ keepScroll: true }); },
-  'deck-size': (el) => { ui.deckSize = Number(el.dataset.n); render({ keepScroll: true }); },
-  'study-known': () => startSession(knownDeck({ level: ui.deckLevel || null, size: ui.deckSize }), 'Brak znanych znaków w tym poziomie.'),
+  'hard-level': (el) => { ui.hardLevel = Number(el.dataset.lv); render({ keepScroll: true }); },
+  'hard-search': () => {
+    ui.hardSearchOpen = !ui.hardSearchOpen;
+    if (!ui.hardSearchOpen) ui.hardQuery = '';
+    render({ keepScroll: true });
+    if (ui.hardSearchOpen) $('#hq')?.focus({ preventScroll: true });
+  },
   'study-due': () => startSession(dueDeck(), 'Nic do powtórki na dziś.'),
   'study-hard': () => startSession(hardDeck(), 'Dodaj najpierw trudne fiszki.'),
-  'learn-tier': (el) => startSession(learnDeck(Number(el.dataset.lv)), 'Wszystkie znaki z tego poziomu już znasz.', 'learn'),
+  'learn-open': (el) => {
+    const lv = Number(el.dataset.lv);
+    if (!learnTodo(lv)) return toast('Wszystkie znaki z tego poziomu już znasz.');
+    openSheet(learnSheetView(lv));
+  },
+  'learn-size': (el) => {
+    setLearnPref({ size: el.dataset.n });
+    const lv = Number(sheetEl.querySelector('#learn-go').dataset.lv);
+    sheetEl.innerHTML = learnSheetView(lv);
+    sheetEl.querySelector(el.dataset.n === 'custom' ? '#learn-n' : '#learn-go')?.focus({ preventScroll: true });
+  },
+  'learn-go': (el) => {
+    const lv = Number(el.dataset.lv);
+    const n = learnCount(lv);
+    closeSheet();
+    startSession(learnDeck(lv, n), 'Wszystkie znaki z tego poziomu już znasz.', 'learn');
+  },
   'new-card': () => openSheet(formView()),
   'del-custom': (el) => { removeCustom(el.dataset.id); toast('Usunięto fiszkę'); render({ keepScroll: true }); },
   answer: (el) => answer(el.dataset.dir),
@@ -598,6 +628,7 @@ document.addEventListener('submit', (e) => {
 });
 
 document.addEventListener('change', async (e) => {
+  if (e.target.id === 'remember') { setRemember(e.target.checked); toast(e.target.checked ? 'Profil zostanie zapamiętany' : 'Ekran wyboru będzie pokazywany przy starcie'); return; }
   if (e.target.id !== 'av-file' || !e.target.files?.[0]) return;
   const id = sheetEl.querySelector('#profile-form')?.dataset.id;
   if (!id) return;
@@ -614,6 +645,13 @@ document.addEventListener('input', (e) => {
   if (id === 'kq') {
     ui.knownQuery = e.target.value;
     $('#known-grid').innerHTML = knownGridHTML(ui);
+  } else if (id === 'hq') {
+    ui.hardQuery = e.target.value;
+    $('#hard-grid').innerHTML = hardGridHTML(ui);
+  } else if (id === 'learn-n') {
+    setLearnPref({ custom: e.target.value });
+    const go = $('#learn-go');
+    if (go) go.textContent = `Zacznij (${learnCount(Number(go.dataset.lv))})`;
   } else if (id === 'quiz-n') {
     ui.quizCustom = e.target.value;
     const btn = $('[data-act="start-quiz"]');

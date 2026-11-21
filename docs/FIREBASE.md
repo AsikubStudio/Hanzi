@@ -7,7 +7,7 @@ Bez tej konfiguracji wszystko działa, tylko profile żyją na jednym urządzeni
 ## 1. Projekt i baza
 1. Wejdź na https://console.firebase.google.com i zaloguj się kontem Google.
 2. **Dodaj projekt** (np. „bothanzi”). Google Analytics możesz wyłączyć.
-3. W menu **Build → Firestore Database → Utwórz bazę danych**. Lokalizacja: `eur3 (europe-west)`. Tryb: **produkcyjny**.
+3. W menu **Build → Firestore Database → Utwórz bazę danych**. Lokalizacja: dowolna (np. `europe-west1`; nie wpływa na działanie aplikacji). Tryb: **produkcyjny**.
 
 ## 2. Reguły bezpieczeństwa
 W Firestore otwórz zakładkę **Reguły**, wklej poniższe i kliknij **Opublikuj**:
@@ -28,6 +28,8 @@ service cloud.firestore {
   }
 }
 ```
+
+Uwaga: wklejaj reguły jako zwykły tekst (proste apostrofy `'`, bez „sprytnych” cudzysłowów i bez niewidocznych znaków na początku). Gdy edytor zgłasza „Parse error” w linii 1, zaznacz wszystko, usuń i wklej jeszcze raz albo przepisz pierwszą linię ręcznie.
 
 Dostęp do danych ma ten, kto zna kod parowania (nie da się wylistować istniejących kodów). Traktuj kod jak hasło.
 

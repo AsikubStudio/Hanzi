@@ -1,6 +1,7 @@
 // Widoki jako funkcje zwracające HTML. Zdarzenia obsługuje app.js (delegacja po data-act).
 import { CHARS, LEVELS, BY_HANZI } from './data.js';
-import { state, isKnown, isHard, streak, dayStamp, dayStats, overallStats, profileInfo, profileList, whoHas, knownCountOf, hasLegacy, legacyCount, currentId } from './store.js';
+import { state, isKnown, isHard, streak, dayStamp, dayStats, overallStats, profileInfo, profileList, whoHas, knownCountOf, hasLegacy, legacyCount, currentId, streakOf, activeTodayOf, peerState, PROFILE_IDS, getRemember } from './store.js';
+import { canSpeak } from './speak.js';
 import { syncConfigured, prettyCode } from './sync.js';
 import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
 import { search } from './search.js';
@@ -17,7 +18,7 @@ const svg = (d) =>
 export const ICONS = {
   home: svg('<path d="M12 3l5 7h-3l4 6H6l4-6H7z"/><path d="M12 16v5"/>'),
   known: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>'),
-  cards: svg('<rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v10"/>'),
+  hard: svg('<path d="M6 21V4"/><path d="M6 5h11l-2.2 4L17 13H6"/>'),
   search: svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
   close: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
@@ -26,6 +27,7 @@ export const ICONS = {
   translate: svg('<path d="M3.5 5.5h9M8 3.5v2M5.2 5.5c.6 3.2 2.8 5.6 5.8 7M11 5.5c-.6 3-3 5.8-7 7.5"/><path d="M12.5 20.5l3.6-9 3.6 9M13.9 17.4h4.4"/>'),
   chevron: svg('<path d="M7 10l5 5 5-5"/>'),
   link: svg('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
+  speaker: svg('<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/>'),
   pencil: svg('<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14.5 6.5l3 3"/>'),
   camera: svg('<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
   palette: svg('<path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-.9 2-1.8 0-.7-.4-1.2-.4-1.9 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1" fill="currentColor"/><circle cx="10" cy="7" r="1" fill="currentColor"/><circle cx="15" cy="7.5" r="1" fill="currentColor"/>'),
@@ -34,7 +36,7 @@ export const ICONS = {
 export const TABS = [
   ['home', 'Start'],
   ['known', 'Znane'],
-  ['cards', 'Fiszki'],
+  ['hard', 'Trudne'],
 ];
 
 export function tabbarHTML(active) {
@@ -132,7 +134,7 @@ const chip = (label, active, act, data = '') =>
   `<button class="chip" type="button" data-act="${act}" ${data} aria-pressed="${active}">${label}</button>`;
 
 const tile = (c, locked = false) =>
-  `<button class="tile${isKnown(c.hanzi) ? ' is-known' : ''}${locked ? ' is-locked' : ''}" type="button" data-act="open" data-h="${esc(c.hanzi)}">
+  `<button class="tile${isHard(c.hanzi) ? ' is-hard' : isKnown(c.hanzi) ? ' is-known' : ''}${locked ? ' is-locked' : ''}" type="button" data-act="open" data-h="${esc(c.hanzi)}">
     <span class="hz">${esc(c.hanzi)}</span><span class="py">${esc(c.pinyin)}</span>
   </button>`;
 
@@ -309,7 +311,7 @@ export function tierBodyHTML(n) {
   const todo = list.filter((c) => !isKnown(c.hanzi)).length;
   return `<div class="grid">${list.map((c) => tile(c)).join('')}</div>
     ${todo
-      ? `<div class="btn-row"><button class="btn small" type="button" data-act="learn-tier" data-lv="${n}">Ucz się nieznanych (${Math.min(20, todo)})</button></div>`
+      ? `<div class="btn-row"><button class="btn small" type="button" data-act="learn-open" data-lv="${n}">Ucz się nieznanych (${todo})</button></div>`
       : '<p class="hint">Wszystkie znaki z tego poziomu są już znane.</p>'}`;
 }
 
@@ -323,7 +325,7 @@ export function homeView(ui) {
 
   const ctas = [
     due > 0 ? `<button class="btn primary" data-act="study-due">Powtórka na dziś (${due})</button>` : '',
-    next ? `<button class="btn${due > 0 ? '' : ' primary'}" data-act="learn-tier" data-lv="${next}">Ucz się nowych znaków</button>` : '',
+    next ? `<button class="btn${due > 0 ? '' : ' primary'}" data-act="learn-open" data-lv="${next}">Ucz się nowych znaków</button>` : '',
   ].join('');
 
   const levels = LEVELS.map((lv) => {
@@ -356,6 +358,7 @@ export function homeView(ui) {
       <div class="stat"><b>${known}</b><span>znane</span></div>
       <div class="stat"><b>${due}</b><span>do powtórki</span></div>
     </section>
+    ${weekCardHTML()}
     ${streakTile(st, Boolean(state.activity[dayStamp()]))}
     <section>
       <h2>Poziomy HSK</h2>
@@ -416,41 +419,78 @@ export function knownView(ui) {
     <div id="known-grid">${knownGridHTML(ui)}</div>`;
 }
 
-// ——— Fiszki ———
-export function cardsView(ui) {
-  const kc = knownCount(ui.deckLevel);
-  const size = Math.min(ui.deckSize, kc);
-  const due = dueDeck().length;
-  const hc = hardCount();
-  const sizes = [10, 20, 30].map((n) => chip(String(n), ui.deckSize === n, 'deck-size', `data-n="${n}"`)).join('');
-  const levels = [chip('Wszystkie', !ui.deckLevel, 'deck-level', 'data-lv="0"'),
-    ...LEVELS.filter((l) => knownCount(l.n) > 0).map((l) => chip(l.label, ui.deckLevel === l.n, 'deck-level', `data-lv="${l.n}"`))].join('');
+// ——— Trudne: znaki oznaczone jako trudne (jak „Znane”), ćwiczenie fiszkami i własne fiszki ———
+export function hardGridHTML(ui) {
+  let list = ui.hardQuery.trim()
+    ? search(ui.hardQuery).filter((c) => isHard(c.hanzi))
+    : CHARS.filter((c) => isHard(c.hanzi));
+  if (ui.hardLevel) list = list.filter((c) => c.hsk === ui.hardLevel);
+  if (!list.length) {
+    return `<div class="empty small"><p>${ui.hardQuery.trim() ? `Wśród trudnych nie ma wyników dla „${esc(ui.hardQuery)}”.` : 'Brak trudnych znaków na tym poziomie.'}</p></div>`;
+  }
+  return `<div class="grid">${list.map((c) => tile(c)).join('')}</div>`;
+}
 
-  const hardList = [
-    ...state.hard.map((h) => BY_HANZI.get(h)).filter(Boolean)
-      .map((c) => `<li class="row"><button class="row-main" data-act="open" data-h="${esc(c.hanzi)}"><span class="hz-sm">${esc(c.hanzi)}</span><span><b>${esc(c.pinyin)}</b><small>${esc(c.pl)}</small></span></button></li>`),
-    ...customAsItems().map((c) => `<li class="row"><div class="row-main"><span class="hz-sm">${esc(c.hanzi)}</span><span><b>${esc(c.pinyin)}</b><small>${esc(c.pl || c.en)}</small></span></div>
-        <button class="icon-btn" data-act="del-custom" data-id="${esc(c.key.slice(2))}" aria-label="Usuń fiszkę ${esc(c.hanzi)}">${ICONS.close}</button></li>`),
-  ].join('');
+export function hardView(ui) {
+  const hardChars = CHARS.filter((c) => isHard(c.hanzi));
+  const total = hardCount(); // trudne znaki + własne fiszki
+  const custom = customAsItems();
+  const levels = LEVELS.filter((l) => hardChars.some((c) => c.hsk === l.n));
+  const chips = [chip('Wszystkie', !ui.hardLevel, 'hard-level', 'data-lv="0"'),
+    ...levels.map((l) => chip(l.label, ui.hardLevel === l.n, 'hard-level', `data-lv="${l.n}"`))].join('');
+  const lupa = `<button class="icon-btn${ui.hardSearchOpen ? ' on' : ''}" type="button" data-act="hard-search" aria-pressed="${ui.hardSearchOpen}" aria-label="Szukaj wśród trudnych">${ICONS.search}</button>`;
 
-  return `${header('Fiszki')}
+  const customList = custom.map((c) => `<li class="row"><div class="row-main"><span class="hz-sm">${esc(c.hanzi)}</span><span><b>${esc(c.pinyin)}</b><small>${esc(c.pl || c.en)}</small></span></div>
+      <button class="icon-btn" data-act="del-custom" data-id="${esc(c.key.slice(2))}" aria-label="Usuń fiszkę ${esc(c.hanzi)}">${ICONS.close}</button></li>`).join('');
+
+  return `${header('Trudne znaki', `<span class="count">${hardChars.length}</span>${hardChars.length ? lupa : ''}`)}
+    ${ui.hardSearchOpen && hardChars.length ? `<div class="searchbox inline">${ICONS.search}
+      <input id="hq" type="search" inputmode="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+        placeholder="Szukaj wśród trudnych" value="${esc(ui.hardQuery)}" aria-label="Szukaj wśród trudnych znaków"></div>` : ''}
     <section class="panel">
-      <h2>Powtórka ze znanych</h2>
-      <p class="muted">Wybierz poziom i liczbę kart. Talia jest losowana z Twoich Znanych.</p>
-      <div class="chips" role="group" aria-label="Poziom talii">${levels}</div>
-      <div class="chips" role="group" aria-label="Liczba kart">${sizes}</div>
-      <div class="btn-row">
-        <button class="btn primary" data-act="study-known" ${kc ? '' : 'disabled'}>${kc ? `Utwórz talię (${size})` : 'Brak znanych znaków'}</button>
-        ${due ? `<button class="btn" data-act="study-due">Do powtórki dziś (${due})</button>` : ''}
-      </div>
+      <h2>Ćwicz trudne</h2>
+      <p class="muted">Fiszki z oznaczonych jako trudne${custom.length ? ' i z Twoich własnych kart' : ''}. Przesuń w prawo, gdy już pamiętasz, w lewo, gdy nie.</p>
+      <div class="btn-row"><button class="btn primary" type="button" data-act="study-hard" ${total ? '' : 'disabled'}>${total ? `Ćwicz trudne (${total})` : 'Brak trudnych znaków'}</button></div>
     </section>
+    ${hardChars.length
+      ? `<div class="chips" role="group" aria-label="Filtr poziomu">${chips}</div><div id="hard-grid">${hardGridHTML(ui)}</div>`
+      : '<div class="empty small"><p>Tu pojawią się znaki, które sprawiają Ci kłopot. Otwórz dowolny znak i wybierz „Dodaj do trudnych”.</p></div>'}
     <section class="panel">
-      <h2>Moje trudne fiszki</h2>
-      <p class="muted">Dodawaj znaki, które sprawiają kłopot, albo twórz własne karty.</p>
-      ${hc ? `<ul class="rows">${hardList}</ul>` : `<div class="empty small"><p>Nie masz jeszcze trudnych fiszek. Otwórz dowolny znak i wybierz „Dodaj do trudnych”.</p></div>`}
-      <div class="btn-row">
-        <button class="btn primary" data-act="study-hard" ${hc ? '' : 'disabled'}>Ćwicz trudne (${hc})</button>
-        <button class="btn" data-act="new-card">${ICONS.plus}Własna fiszka</button>
+      <h2>Własne fiszki</h2>
+      <p class="muted">Własne karty trafiają do ćwiczenia razem z trudnymi znakami.</p>
+      ${custom.length ? `<ul class="rows">${customList}</ul>` : ''}
+      <div class="btn-row"><button class="btn" type="button" data-act="new-card">${ICONS.plus}Własna fiszka</button></div>
+    </section>`;
+}
+
+// ——— „Ucz się nowych”: wybór liczby znaków (5 / 10 / 15 / własna) ———
+export const LEARN_SIZES = ['5', '10', '15', 'custom'];
+
+export function learnTodo(lv) { return CHARS.filter((c) => c.hsk === lv && !isKnown(c.hanzi)).length; }
+
+export function learnCount(lv) {
+  const todo = learnTodo(lv);
+  const p = state.learnPref || { size: '10', custom: 12 };
+  const n = p.size === 'custom' ? parseInt(p.custom, 10) || 1 : Number(p.size);
+  return Math.min(todo, Math.max(1, n));
+}
+
+export function learnSheetView(lv) {
+  const todo = learnTodo(lv);
+  const p = state.learnPref || { size: '10', custom: 12 };
+  const label = LEVELS.find((l) => l.n === lv)?.label || `HSK ${lv}`;
+  const chips = LEARN_SIZES.map((n) => chip(n === 'custom' ? 'Własna' : n, p.size === n, 'learn-size', `data-n="${n}"`)).join('');
+  return `<div class="sheet-backdrop" data-act="close-sheet"></div>
+    <section class="sheet sheet-learn" role="dialog" aria-modal="true" aria-label="Ucz się nowych znaków">
+      <div class="grab" aria-hidden="true"></div>
+      <h2>Ucz się nowych znaków</h2>
+      <p class="muted">${label}: zostało ${todo} ${plural(todo, 'nieznany znak', 'nieznane znaki', 'nieznanych znaków')}. Ile chcesz się teraz nauczyć?</p>
+      <div class="chips learn-chips" role="group" aria-label="Liczba znaków">${chips}</div>
+      ${p.size === 'custom' ? `<label class="num">Liczba znaków (1–${todo})
+        <input id="learn-n" type="number" inputmode="numeric" min="1" max="${todo}" value="${esc(p.custom)}"></label>` : ''}
+      <div class="btn-col">
+        <button class="btn primary" type="button" id="learn-go" data-act="learn-go" data-lv="${lv}">Zacznij (${learnCount(lv)})</button>
+        <button class="btn" type="button" data-act="close-sheet">Anuluj</button>
       </div>
     </section>`;
 }
@@ -489,6 +529,42 @@ export function sentenceHTML(hanzi) {
   </div>`;
 }
 
+// Przycisk wymowy (Web Speech API); bez obsługi syntezy mowy w ogóle się nie pokazuje.
+export const speakBtn = (text) => (canSpeak
+  ? `<button class="speak-btn" type="button" data-act="speak" data-t="${esc(text)}" aria-label="Posłuchaj wymowy: ${esc(text)}">${ICONS.speaker}</button>` : '');
+
+// ——— Ostatnie 7 dni: Ty i druga osoba (lampiony = dni z nauką) ———
+const WEEKDAY = ['N', 'P', 'W', 'Ś', 'C', 'P', 'S'];
+const miniLamp = (lit, i) => `<svg class="ml" viewBox="-12 -4 24 46" aria-hidden="true"><g class="lamp${lit ? ' lit' : ''}" style="--d:${(i * 0.4).toFixed(1)}s">${lit
+  ? '<ellipse class="lp-body" cx="0" cy="18" rx="11" ry="12"/><ellipse class="lp-hi" cx="0" cy="18" rx="6.2" ry="8.4" opacity=".9"/>'
+  : '<ellipse class="lp-off" cx="0" cy="18" rx="11" ry="12" stroke-width="1.4"/>'}<path class="lp-rib" d="M0 6V30M-6.2 7Q-9.8 18-6.2 29M6.2 7Q9.8 18 6.2 29" stroke-width="1" fill="none"/><rect class="lp-cap" x="-6" y="3" width="12" height="3.2" rx="1.2"/><rect class="lp-cap" x="-5" y="29.5" width="10" height="3.2" rx="1.2"/><path class="lp-tassel" d="M0 32.7V39" stroke-width="1.2"/><circle class="lp-bead" cx="0" cy="40" r="1.6"/></g></svg>`;
+
+function weekRow(id) {
+  const act = peerState(id).activity || {};
+  const p = profileInfo(id);
+  const n = streakOf(id);
+  const today = act[dayStamp()] || 0;
+  const lamps = [...Array(7)].map((_, k) => {
+    const off = k - 6;
+    const d = new Date();
+    d.setDate(d.getDate() + off);
+    return `<span class="mc${off === 0 ? ' today' : ''}">${miniLamp(Boolean(act[dayStamp(off)]), k)}<small>${WEEKDAY[d.getDay()]}</small></span>`;
+  }).join('');
+  const todayTxt = today ? `dziś: ${today} ${plural(today, 'karta', 'karty', 'kart')}` : 'dziś: brak';
+  return `<div class="mrow" role="group" aria-label="${esc(p.name)}: seria ${n} ${dayWord(n)}, ${todayTxt}">
+    ${avatarHTML(id, 'md')}<div class="mname"><b>${esc(p.name)}</b><small>${todayTxt}</small></div>
+    <div class="mlamps">${lamps}</div><div class="mn"><b>${n}</b><small>${dayWord(n)}</small></div></div>`;
+}
+
+export function weekCardHTML() {
+  const me = currentId();
+  const other = PROFILE_IDS.find((id) => id !== me);
+  if (!me || !other) return '';
+  const o = peerState(other);
+  if (!Object.keys(o.known || {}).length && !Object.keys(o.activity || {}).length) return ''; // druga osoba jeszcze nie zaczęła
+  return `<section class="week" aria-label="Ostatnie 7 dni"><h3>Ostatnie 7 dni</h3>${weekRow(me)}${weekRow(other)}</section>`;
+}
+
 // ——— Profile: awatary, kto ma znak, ekran wyboru, edycja, synchronizacja ———
 export function avatarHTML(id, size = 'md') {
   const p = profileInfo(id);
@@ -504,7 +580,16 @@ export function whoHTML(hanzi, cls = '') {
   if (!list.length) return '';
   const label = list.map((p) => `${p.name}: ${p.hard ? 'trudny' : 'znany'}`).join(', ');
   return `<span class="who ${cls}" role="img" aria-label="${esc(label)}">${list.map((p) =>
-    `<span class="who-i${p.hard ? ' is-hard' : ''}" title="${esc(p.name)}: ${p.hard ? 'trudny' : 'znany'}">${avatarHTML(p.id, 'sm')}</span>`).join('')}</span>`;
+    `<span class="who-i ${p.hard ? 'is-hard' : 'is-known'}" title="${esc(p.name)}: ${p.hard ? 'trudny' : 'znany'}">${avatarHTML(p.id, 'sm')}</span>`).join('')}</span>`;
+}
+
+// Mały lampion serii pod profilem: zapalony, gdy seria trwa (z poświatą, jeśli dziś już była nauka), zgaszony bez serii.
+function pickStreakHTML(id) {
+  const n = streakOf(id);
+  const today = activeTodayOf(id);
+  const lamp = `<svg class="pick-lamp" viewBox="-14 -6 28 50" aria-hidden="true"><defs><radialGradient id="pl-${id}"><stop class="s-glow" offset="0" stop-opacity=".7"/><stop class="s-glow" offset="1" stop-opacity="0"/></radialGradient></defs>${n && today ? `<circle class="lamp-halo" cx="0" cy="21" r="24" fill="url(#pl-${id})"/>` : ''}${lampion(0, 0, 1, n > 0, 0).replace(/<circle class="lamp-halo"[^>]*>/, '')}</svg>`;
+  const label = n ? `Seria: ${n} ${dayWord(n)}${today ? ', dziś już była nauka' : ', dziś jeszcze nie było nauki'}` : 'Brak serii';
+  return `<span class="pick-streak${n ? ' on' : ''}" role="img" aria-label="${label}" title="${label}">${lamp}<b>${n}</b><span>${n ? dayWord(n) : 'bez serii'}</span></span>`;
 }
 
 export function profilePickerView() {
@@ -517,6 +602,7 @@ export function profilePickerView() {
       <button class="pick-main" type="button" data-act="pick-profile" data-id="${p.id}" aria-label="Wejdź jako ${esc(p.name)}">
         ${avatarHTML(p.id, 'xl')}<b>${esc(p.name)}</b><small>${n} ${plural(n, 'znak', 'znaki', 'znaków')}</small>
       </button>
+      ${pickStreakHTML(p.id)}
       <button class="link-btn" type="button" data-act="edit-profile" data-id="${p.id}">${ICONS.pencil} Edytuj</button>
     </li>`;
   }).join('');
@@ -542,6 +628,7 @@ export function profileSheetView(id, { picker = false } = {}) {
       </div>
       <input type="file" id="av-file" accept="image/*" hidden>
       <label>Nazwa<input name="name" value="${esc(p.name)}" maxlength="16" required autocomplete="off"></label>
+      ${picker ? '' : `<label class="sheet-check"><input type="checkbox" id="remember" ${getRemember() ? 'checked' : ''}><span>Zapamiętaj profil na tym telefonie<small>Aplikacja od razu otworzy się na tym profilu. Zmienisz go tutaj w każdej chwili.</small></span></label>`}
       <div class="btn-col">
         <button class="btn primary" type="submit">Zapisz</button>
         ${picker ? '' : '<button class="btn" type="button" data-act="switch-profile">Zmień profil</button><button class="btn" type="button" data-act="open-sync">Synchronizacja</button>'}
@@ -612,7 +699,7 @@ export function sheetView(c) {
         <figure class="wbox"><div class="wframe"><span class="wglyph" lang="zh">${esc(c.hanzi)}</span></div><figcaption>Pismo drukowane</figcaption></figure>
         <figure class="wbox stroke-box" data-h="${esc(c.hanzi)}"><div class="wframe"></div><figcaption class="stroke-count">Kolejność kresek</figcaption></figure>
       </div>
-      <p class="sheet-py">${esc(c.pinyin)}</p>
+      <p class="sheet-py">${esc(c.pinyin)}${speakBtn(c.hanzi)}</p>
       <div class="sheet-meta"><p class="pill">${lv ? lv.label : ''}</p>${whoHTML(c.hanzi)}</div>
       <dl class="meanings"><div><dt>Polski</dt><dd>${esc(c.pl)}</dd></div><div><dt>English</dt><dd>${esc(c.en)}</dd></div></dl>
       ${sentenceHTML(c.hanzi)}
@@ -657,7 +744,7 @@ export function sessionView(S) {
       <div class="card${S.flipped ? ' is-flipped' : ''}" id="card" tabindex="0" aria-label="Fiszka. Dotknij, aby odkryć odpowiedź.">
         <div class="card-hz" lang="zh">${esc(c.hanzi)}</div>
         <div class="card-back">
-          <p class="card-py">${esc(c.pinyin)}</p>
+          <p class="card-py">${esc(c.pinyin)}${speakBtn(c.hanzi)}</p>
           <p class="card-pl">${esc(c.pl)}</p>
           <p class="card-en">${esc(c.en)}</p>
           ${c.note ? `<p class="card-note">${esc(c.note)}</p>` : ''}
@@ -739,7 +826,7 @@ export function quizResultView(Q) {
     </div>
     <div class="stage quiz-stage">
       <div class="quiz-hz small" lang="zh">${esc(c.hanzi)}</div>
-      <p class="quiz-answer">${esc(c.pinyin)}</p>
+      <p class="quiz-answer">${esc(c.pinyin)}${speakBtn(c.hanzi)}</p>
       <p class="quiz-meaning">${esc(c.pl)} · ${esc(c.en)}</p>
     </div>
     <ul class="qrows">

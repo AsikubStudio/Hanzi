@@ -6,7 +6,7 @@
   --hanzi: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", "PingFang SC", "Microsoft YaHei", serif;
   --tabbar-h: 64px;
   --btn-dark: linear-gradient(180deg, var(--btn-st-top), var(--btn-st-bot));
-  --hard: #e5484d;
+  --hard: #e5484d; --known: #3fb97f;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -145,6 +145,8 @@ body.in-session .tabbar { display: none; }
 .tile .hz { font: 400 2rem/1.1 var(--hanzi); }
 .tile .py { font-size: .78rem; color: var(--ink-2); }
 .tile.is-known { border-color: color-mix(in srgb, var(--moss) 55%, var(--line)); background: color-mix(in srgb, var(--moss) 10%, var(--surface)); }
+.tile.is-hard { border-color: color-mix(in srgb, var(--hard) 60%, var(--line)); background: color-mix(in srgb, var(--hard) 12%, var(--surface)); }
+.tile.is-hard .hz { color: var(--hard); }
 .tile.is-locked { opacity: .6; }
 .tile:active { transform: scale(.97); }
 
@@ -166,6 +168,8 @@ body.in-session .tabbar { display: none; }
 .tier-body .grid { margin-top: 2px; }
 .tier .tile.is-known { background: var(--pink-soft); border-color: color-mix(in srgb, var(--pink) 55%, var(--line)); }
 .tier .tile.is-known .hz { color: var(--pink); }
+.tier .tile.is-hard { background: color-mix(in srgb, var(--hard) 12%, var(--surface)); border-color: color-mix(in srgb, var(--hard) 60%, var(--line)); }
+.tier .tile.is-hard .hz { color: var(--hard); }
 .hint { color: var(--ink-2); font-size: .88rem; margin-top: 4px; }
 
 /* ——— Listy ——— */
@@ -554,6 +558,7 @@ button.cal-c { cursor: pointer; }
 .who { display: inline-flex; align-items: center; gap: 9px; }
 .who-i { display: inline-grid; border-radius: 50%; }
 .who-i.is-hard { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--hard); }
+.who-i.is-known { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--known); }
 .sheet-meta { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; min-height: 30px; }
 .sheet-meta .pill { margin-top: 0; }
 .card-who { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); }
@@ -593,3 +598,42 @@ button.cal-c { cursor: pointer; }
 .sync-join input { flex: 1; min-width: 0; min-height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); color: var(--ink); font: 600 1rem var(--sans); letter-spacing: .06em; text-transform: uppercase; }
 .sync-join input:focus { border-color: var(--pink); outline: 0; }
 body.in-picker { overflow: hidden; }
+
+.pick-streak { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; padding: 2px 12px 2px 4px; border-radius: 99px; background: linear-gradient(180deg, var(--stage-top), var(--stage-bot)); color: var(--st-ink-2); font-size: .82rem; }
+.pick-streak b { color: var(--st-ink); font-variant-numeric: tabular-nums; }
+.pick-streak:not(.on) { opacity: .75; }
+.pick-lamp { width: 20px; height: 34px; overflow: visible; }
+
+/* ——— Wymowa ——— */
+.speak-btn { display: inline-grid; place-items: center; width: 40px; height: 40px; margin-left: 4px; border: 0; border-radius: 50%; background: var(--pink-soft); color: var(--pink); vertical-align: middle; }
+.speak-btn .ico { width: 21px; height: 21px; }
+.speak-btn:hover { background: color-mix(in srgb, var(--pink) 22%, transparent); }
+.speak-btn:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+.quiz-stage .speak-btn { background: rgba(255, 255, 255, .1); color: var(--st-ink); }
+.card:not(.is-flipped) .card-back { pointer-events: none; } /* niewidoczny przycisk wymowy nie przechwytuje dotknięcia, które ma odkryć kartę */
+
+/* ——— Ostatnie 7 dni (Ty i druga osoba) ——— */
+.week { margin: 0 0 14px; padding: 14px 12px 8px; border-radius: 22px; background: linear-gradient(180deg, var(--stage-top), var(--stage-bot)); color: var(--st-ink); }
+.week h3 { font: 600 .95rem var(--sans); color: var(--st-ink-2); margin: 0 4px 6px; }
+.mrow { display: grid; grid-template-columns: 34px 64px 1fr 30px; align-items: center; gap: 8px; padding: 6px 0; }
+.mrow + .mrow { border-top: 1px solid rgba(255, 255, 255, .08); }
+.mrow .av { --s: 34px; }
+.mname { display: grid; min-width: 0; }
+.mname b { font: 600 .95rem var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mname small { color: var(--st-ink-3); font-size: .7rem; white-space: nowrap; }
+.mlamps { display: flex; justify-content: space-between; }
+.mc { display: grid; justify-items: center; }
+.mc .ml { width: 19px; height: 34px; overflow: visible; }
+.mc small { font-size: .62rem; color: var(--st-ink-3); }
+.mc.today small { color: var(--st-ink); font-weight: 700; }
+.mn { display: grid; justify-items: end; }
+.mn b { font: 700 1.1rem var(--serif); font-variant-numeric: tabular-nums; }
+.mn small { font-size: .66rem; color: var(--st-ink-3); }
+
+.sheet-check { display: flex !important; align-items: flex-start; gap: 12px; margin-top: 16px; font-size: .95rem; color: var(--ink) !important; }
+.sheet-check input { width: 22px; height: 22px; min-height: 0 !important; flex: none; margin-top: 2px; accent-color: var(--pink); }
+.sheet-check span { display: grid; gap: 2px; }
+.sheet-check small { color: var(--ink-2); font-size: .8rem; }
+
+.sheet-learn .learn-chips { justify-content: center; margin-top: 14px; }
+.sheet-learn .num { justify-self: center; margin-top: 12px; }

@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.17)
+# BotHanzi: architektura (v0.20)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -8,7 +8,7 @@
 
 ## Model danych
 Znak: `{ hanzi, pinyin (z tonami), hsk (1–7), en, pl }`; znaczenia rozdzielone średnikiem.
-Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, `srs{key:{box,due}}`, `activity{date:n}`, `log{date:{r,g,ok,t}}`, `theme`, `showTr`.
+Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, `srs{key:{box,due}}`, `activity{date:n}`, `log{date:{r,g,ok,t}}`, `theme`, `themeMode`, `showTr`, `learnPref{size:'5'|'10'|'15'|'custom',custom}`.
 
 ## Zachowanie
 - Odblokowanie poziomu: poprzedni poziom opanowany w ≥ 50% (miękka blokada, podgląd zawsze możliwy).
@@ -84,6 +84,28 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 - Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
 - `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
 
+## Zmiany w v0.20
+- Zakładka „Fiszki” zastąpiona zakładką „Trudne” (`#/hard`; stary adres `#/cards` jest aliasem). Widok `hardView` działa jak „Znane”: nagłówek z licznikiem i lupką (`hard-search`, pole `#hq` filtruje tylko trudne), chipy poziomów HSK (tylko te, w których są trudne znaki), siatka `#hard-grid`. Panel „Ćwicz trudne (N)” (`study-hard`) ćwiczy trudne znaki oraz własne fiszki. Poniżej sekcja „Własne fiszki” (lista, usuwanie `del-custom`, przycisk `new-card`).
+- Usunięto „Powtórkę ze znanych” (`study-known`, `deck-level`, `deck-size`); w Znanych zostaje „Odpytaj się”. „Powtórka na dziś” zostaje na Starcie.
+- Listy poziomów HSK na Starcie: znak oznaczony jako trudny jest czerwony (`.tile.is-hard`, kolor `--hard`) i ma pierwszeństwo przed różowym „znanym”.
+- „Ucz się nowych znaków” otwiera arkusz (`learnSheetView`, akcje `learn-open`, `learn-size`, `learn-go`, pole `#learn-n`) z wyborem 5 / 10 / 15 / własna liczba (1 do liczby pozostałych znaków poziomu). Ostatni wybór jest zapamiętany w profilu (`state.learnPref`) i synchronizowany razem z resztą stanu. Przycisk w poziomie HSK pokazuje liczbę pozostałych znaków.
+- Service worker: `bothanzi-v22`.
+
+## Zmiany w v0.19 (wymowa, tydzień we dwoje, zapamiętany profil)
+- **Wymowa** (`js/speak.js`): przycisk głośnika obok pinyin w karcie znaku, na odwrocie fiszki i na ekranie wyniku quizu (w pytaniu quizu go nie ma, bo zdradzałby odpowiedź). Web Speech API (`speechSynthesis`, głos `zh-CN`, tempo 0,8), bez plików audio. Gdy lista głosów jest załadowana i nie ma żadnego chińskiego, pokazuje się komunikat zamiast czytania błędnym głosem; bez obsługi API przycisk w ogóle się nie rysuje. Czyta się znak, nie pinyin, więc znaki wieloodczytaniowe (了, 行) czytane są domyślnym odczytaniem głosu. Niewidoczny przycisk na zakrytej fiszce nie łapie dotknięcia (`pointer-events: none` do odkrycia karty).
+- **Ostatnie 7 dni** (`weekCardHTML` w `ui.js`, na stronie głównej między statystykami a kafelkiem serii): dwa rzędy (Ty i druga osoba): awatar, nazwa, „dziś: N kart”, siedem lampionów (zapalony = dzień z nauką, litera dnia tygodnia, dziś pogrubione) i seria. Ukryta, dopóki druga osoba nie ma żadnych znanych znaków ani aktywności. Dane drugiej osoby z lokalnej kopii (synchronizacja).
+- **Zapamiętanie profilu** (ustawienie tego urządzenia, domyślnie wyłączone): pole w oknie profilu. Gdy włączone, świeże uruchomienie wchodzi od razu na ostatni profil (`localStorage` `bothanzi:remember` i `bothanzi:last`); „Zmień profil” świadomie pokazuje ekran wyboru nawet po odświeżeniu (`sessionStorage` `bothanzi:picker`).
+- **Kontrola danych**: `node tools/check-data.mjs` sprawdza unikalność znaków, poziomy HSK, pinyin i znaczenia, plik kresek, wpis w `strokes/index.json` i co najmniej jedno zdanie na znak; kod wyjścia 1 przy błędach. Uruchamiaj przed każdym wydaniem i po imporcie nowego poziomu.
+- **Kreski**: service worker wgrywa z góry tylko pierwsze 600 z `strokes/index.json` (stała `STROKES_PRECACHE`), resztę zapamiętuje przy pierwszym otwarciu znaku; nieotwarty znak bez internetu pokazuje samo pismo drukowane.
+- Service worker: `bothanzi-v21` (w app shellu `js/speak.js`).
+
+## Zmiany w v0.17–v0.18 (gesty, obwódki, serie)
+- **Zamykanie arkuszy gestem** (karta znaku, motywy, profil, synchronizacja, nowa fiszka): przesunięcie palcem w dół. Tylko układ mobilny (<900 px); z treści działa, gdy arkusz jest przewinięty do góry (więc przewijanie długiej zawartości go nie zamyka), a z uchwytu (górne 48 px) zawsze. Próg 110 px albo szybki ruch (>0,6 px/ms); krótszy ruch wraca na miejsce. Obsługa w `app.js` (zdarzenia touch, `touchmove` nieprzezroczysty dla przewijania dopiero po przekroczeniu progu), `overscroll-behavior: contain` na `.sheet`.
+- Ekran wyboru profilu nie ma widocznego nagłówka (został `h1.sr-only` „Wybierz profil”).
+- **Obwódki awatarów** przy znaku: zielona (`--known`), gdy znak jest w „Znanych”, czerwona (`--hard`), gdy w „Trudnych”; trudny ma pierwszeństwo.
+- **Seria na ekranie wyboru**: pod nazwą profilu mały lampion w ciemnej pigułce (zapalony z poświatą, gdy dziś była nauka; zapalony bez poświaty, gdy seria trwa, a dziś jeszcze nie było nauki; zgaszony: „bez serii”). `streakOf(id)` i `activeTodayOf(id)` w `store.js`.
+- Service worker: `bothanzi-v20` (v0.17: v19; v0.16.1: v18; v0.16: v17).
+
 ## Zmiany w v0.16 (profile Asia i Kuba, synchronizacja)
 - **Profile**: dwa stałe profile (`asia`, `kuba`), każdy z własnym stanem (znane, trudne, własne fiszki, SRS, seria, kalendarz, statystyki, motyw i tryb, `showTr`) oraz nazwą i zdjęciem. `localStorage['bothanzi:v2'] = { v:2, profiles:{ id:{ name, avatar, state, ts, base } }, sync:{ code }, legacy }`. `state` w `store.js` to roboczy obiekt aktywnego profilu (podmieniany w miejscu przy zmianie profilu), więc reszta kodu go nie zna inaczej niż wcześniej. `bothanzi:ui` = `{theme, themeMode}` aktywnego profilu dla skryptu w `<head>`.
 - **Start**: ekran wyboru profilu przy każdym uruchomieniu (dwa duże kółka, pod nimi liczba znanych znaków i „Edytuj”). Aktywny profil żyje w `sessionStorage`, więc odświeżenie strony w trakcie sesji nie wraca do wyboru. Zmiana profilu: ikona awatara w nagłówku → „Zmień profil”. Na ekranie wyboru obowiązuje motyw ostatnio używanego profilu.
@@ -92,7 +114,7 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 - **Awatary przy znaku**: `whoHas(hanzi)` zwraca profile, które mają znak w „Znanych” lub „Trudnych”; `whoHTML` rysuje małe awatary, a znak „trudny” dostaje czerwoną obwódkę. Widać je w arkuszu znaku (obok etykiety HSK) oraz na fiszce (góra karty, przód i tył). Dane drugiej osoby pochodzą z lokalnej kopii (ten sam telefon albo ostatnia synchronizacja).
 - **Synchronizacja** (`js/sync.js`, `js/config.js`, instrukcja `docs/FIREBASE.md`): Firestore przez REST (bez SDK), dokument `rooms/<kod>/profiles/<id>` = `{ data: JSON {name, avatar, state}, ts }`. Kod parowania: 12 znaków z alfabetu bez 0/O/1/I, działa jak hasło (reguły nie pozwalają wylistować kodów). Każdy profil ma `ts` (ostatnia zmiana lokalna) i `base` (wersja, o której wiemy, że jest w chmurze). Reguła: chmura bez zmian → wyślij nasze; chmura zmieniona i brak zmian lokalnych → weź chmurę; zmiany po obu stronach → `mergeState` (znane, trudne i własne fiszki: suma; SRS: dalsze pudełko; aktywność i log: większa wartość dnia; pola pojedyncze, nazwa i zdjęcie: wersja nowsza) i wysłanie wyniku. Ponieważ każdy profil ma zwykle jednego właściciela, zwykle wystarcza prosta wymiana wersji; scalanie chroni przed utratą danych, gdy ten sam profil użyto na dwóch telefonach. Ograniczenie: usunięcie znaku ze „Znanych” w trakcie scalania może zostać cofnięte (suma zbiorów).
 - **Kiedy synchronizuje**: po starcie, przy zmianie widoczności karty (wejście i wyjście), ok. 3,5 s po zmianie lokalnej, po powrocie internetu i co 90 s przy otwartej aplikacji. Błąd sieci nie przerywa pracy (status w arkuszu „Synchronizacja”). `localStorage['bothanzi:fbcfg']` pozwala nadpisać konfigurację (testy).
-- Service worker: `bothanzi-v18` (w app shellu `js/sync.js`, `js/config.js`, `js/avatar.js`; zapytania do googleapis.com SW pomija).
+- Service worker: `bothanzi-v17` (w app shellu `js/sync.js`, `js/config.js`, `js/avatar.js`; zapytania do googleapis.com SW pomija).
 - Testy: `/tmp/test/run16.py` (dwa „telefony” na atrapie Firestore: migracja, zdjęcie, kod parowania, awatary, scalanie), `run17.py` (offline, 360 px, brak konfiguracji).
 
 ## Zmiany w v0.15 (przełącznik trybu)
@@ -112,7 +134,7 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 ## Następne kroki
 0. **Zrobione w v0.16: profile Asia i Kuba** (kod gotowy). Do włączenia synchronizacji trzeba założyć projekt Firebase wg `docs/FIREBASE.md` i wpisać klucze w `js/config.js`. Do rozważenia: ekran wyboru tylko przy pierwszym uruchomieniu na telefonie (pamiętanie profilu), powiadomienie „Asia powtórzyła dziś N kart”.
 0b. **Zrobione w v0.14–v0.16: motywy kolorystyczne** (motyw i tryb są w danych profilu). Dziś są dwa tryby (jasny i ciemny) oparte na zmiennych CSS (`--bg`, `--surface`, `--pink`, `--gold` itd.), więc motywy to zestawy tych zmiennych wybierane atrybutem `data-theme`. Do ustalenia: ile motywów i jakie (np. obecny zielono-różowy, nocny granat, ciepły bursztyn), czy motyw jest per profil, czy per urządzenie, oraz czy zmieniają się też hero (góry, słońce) i kafel serii. Wybór zapisany w stanie (`theme`) i w `theme-color` meta.
-1. HSK 2 (161 brakujących znaków), potem poziomy 3–6; przejrzenie polskich znaczeń HSK 1.
+1. HSK 2 (161 brakujących znaków), potem poziomy 3–6; przejrzenie polskich znaczeń HSK 1. Zrobione w v0.19: pamiętanie profilu, kontrola danych, kreski przy pierwszym użyciu, wymowa, karta „Ostatnie 7 dni”. Zostaje: eksport/import postępu (JSON; projekt: plik z profilem, import scala lub zastępuje po podsumowaniu), przegląd polskich znaczeń HSK 1 (plik CSV do przeglądu).
 2. Audio; tryb ćwiczenia rysowania znaku palcem.
 3. Eksport/import postępu (JSON) i ewentualna synchronizacja.
 4. Weryfikacja iOS: instalacja z Safari, ikony, pasek stanu.

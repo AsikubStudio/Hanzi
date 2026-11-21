@@ -8,6 +8,7 @@
 // themeMode: 'auto' | 'dark' | 'light' (null = starszy zapis; migracja w js/themes.js)
 // log:      { 'YYYY-MM-DD': { r: powtórki, g: oceny do retencji, ok: poprawne, t: czas nauki w ms } }
 // showTr:   czy pokazywać tłumaczenie zdań przykładowych (ikona tłumacza w rogu zdania)
+// learnPref: { size: '5'|'10'|'15'|'custom', custom: liczba } ostatni wybór liczby znaków w „Ucz się nowych”
 
 // Profile: dwie osoby (Asia, Kuba), każda z własnym stanem (jak wyżej) + nazwą i zdjęciem.
 // localStorage `bothanzi:v2` = { v:2, profiles:{ asia:{ name, avatar, state, ts, base }, kuba:{…} }, sync:{ code }, legacy }.
@@ -21,11 +22,14 @@ const KEY = 'bothanzi:v2';
 const LEGACY_KEY = 'bothanzi:v1';
 const UI_KEY = 'bothanzi:ui';
 const ME_KEY = 'bothanzi:me';
+const REMEMBER_KEY = 'bothanzi:remember'; // ustawienie tego urządzenia: wchodź od razu na ostatnio używany profil
+const LAST_KEY = 'bothanzi:last';
+const PICKER_KEY = 'bothanzi:picker'; // sessionStorage: ekran wyboru otwarto świadomie (zmiana profilu)
 
 export const PROFILE_IDS = ['asia', 'kuba'];
 const NAMES = { asia: 'Asia', kuba: 'Kuba' };
 
-const defaults = () => ({ known: {}, hard: [], custom: [], srs: {}, activity: {}, log: {}, theme: 'las', themeMode: null, showTr: false });
+const defaults = () => ({ known: {}, hard: [], custom: [], srs: {}, activity: {}, log: {}, theme: 'las', themeMode: null, showTr: false, learnPref: { size: '10', custom: 12 } });
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const emptyRec = (id) => ({ name: NAMES[id], avatar: null, state: defaults(), ts: 0, base: 0 });
 const hasProgress = (s) => Boolean(s && (Object.keys(s.known || {}).length || (s.custom || []).length || Object.keys(s.activity || {}).length || (s.hard || []).length));
@@ -87,16 +91,24 @@ export function selectProfile(id) {
   me = id;
   replaceState(db.profiles[id].state);
   db.profiles[id].state = state;
-  try { sessionStorage.setItem(ME_KEY, id); } catch { /* ignoruj */ }
+  try { sessionStorage.setItem(ME_KEY, id); sessionStorage.removeItem(PICKER_KEY); localStorage.setItem(LAST_KEY, id); } catch { /* ignoruj */ }
   persist();
   return true;
+}
+
+export function getRemember() { try { return localStorage.getItem(REMEMBER_KEY) === '1'; } catch { return false; } }
+export function setRemember(on) {
+  try {
+    if (on) { localStorage.setItem(REMEMBER_KEY, '1'); if (me) localStorage.setItem(LAST_KEY, me); }
+    else localStorage.removeItem(REMEMBER_KEY);
+  } catch { /* ignoruj */ }
 }
 
 export function leaveProfile() {
   if (!me) return;
   db.profiles[me].state = clone(state);
   me = null;
-  try { sessionStorage.removeItem(ME_KEY); } catch { /* ignoruj */ }
+  try { sessionStorage.removeItem(ME_KEY); sessionStorage.setItem(PICKER_KEY, '1'); } catch { /* ignoruj */ }
   persist();
 }
 
@@ -201,9 +213,12 @@ export function setSyncCode(code) {
   persist();
 }
 
-{ // powrót do profilu z tej sesji (odświeżenie strony)
+{ // powrót do profilu z tej sesji (odświeżenie strony) albo, przy włączonym zapamiętywaniu, do ostatniego profilu
   let saved = null;
-  try { saved = sessionStorage.getItem(ME_KEY); } catch { /* ignoruj */ }
+  try {
+    saved = sessionStorage.getItem(ME_KEY);
+    if (!saved && getRemember() && !sessionStorage.getItem(PICKER_KEY)) saved = localStorage.getItem(LAST_KEY);
+  } catch { /* ignoruj */ }
   if (PROFILE_IDS.includes(saved)) selectProfile(saved);
 }
 
@@ -284,6 +299,21 @@ export function streak() {
   let offset = state.activity[dayStamp()] ? 0 : -1;
   while (state.activity[dayStamp(offset)]) { n++; offset--; }
   return n;
+}
+
+// Seria i aktywność dowolnego profilu (ekran wyboru, postęp drugiej osoby).
+export function streakOf(id) {
+  const act = peerState(id).activity || {};
+  let n = 0;
+  let offset = act[dayStamp()] ? 0 : -1;
+  while (act[dayStamp(offset)]) { n++; offset--; }
+  return n;
+}
+export const activeTodayOf = (id) => Boolean((peerState(id).activity || {})[dayStamp()]);
+
+export function setLearnPref(p) {
+  state.learnPref = { ...(state.learnPref || { size: '10', custom: 12 }), ...p };
+  save();
 }
 
 export function setShowTr(v) {

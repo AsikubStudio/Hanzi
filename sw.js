@@ -1,9 +1,10 @@
 // Service worker: app shell w cache, działa offline. Podbij VERSION po każdej zmianie plików.
-const VERSION = 'bothanzi-v19';
+const VERSION = 'bothanzi-v22';
+const STROKES_PRECACHE = 600;
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'css/styles.css', 'css/themes.css',
-  'js/app.js', 'js/data.js', 'js/store.js', 'js/srs.js', 'js/search.js', 'js/ui.js', 'js/quiz.js', 'js/strokes.js', 'js/sentences.js', 'js/themes.js', 'js/sync.js', 'js/config.js', 'js/avatar.js',
+  'js/app.js', 'js/data.js', 'js/store.js', 'js/srs.js', 'js/search.js', 'js/ui.js', 'js/quiz.js', 'js/strokes.js', 'js/sentences.js', 'js/themes.js', 'js/sync.js', 'js/speak.js', 'js/config.js', 'js/avatar.js',
   'icons/logo.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
 ];
 
@@ -12,12 +13,12 @@ self.addEventListener('install', (e) => {
     caches.open(VERSION)
       .then(async (c) => {
         await c.addAll(SHELL);
-        // Dane kresek (lista z tools/build-strokes.mjs) — żeby animacje działały offline.
+        // Dane kresek (lista z tools/build-strokes.mjs): pierwsze STROKES_PRECACHE z listy od razu (animacje offline), reszta przy pierwszym użyciu.
         try {
           const res = await fetch('strokes/index.json');
           const list = await res.clone().json();
           await c.put('strokes/index.json', res);
-          await c.addAll(list.map((h) => `strokes/${h}.json`));
+          await c.addAll(list.slice(0, STROKES_PRECACHE).map((h) => `strokes/${h}.json`));
         } catch { /* brak danych kresek nie blokuje instalacji */ }
       })
       .then(() => self.skipWaiting())
