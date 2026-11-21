@@ -15,7 +15,12 @@ function config() {
   return FIREBASE;
 }
 
-export const syncConfigured = () => Boolean(config().projectId && config().apiKey);
+// Zabezpieczenie przed literówkami przy wklejaniu kluczy (zbędny cudzysłów, spacja, nowa linia).
+const clean = (v, re) => String(v || '').replace(re, '');
+const projectId = () => clean(config().projectId, /[^a-z0-9-]/gi);
+const apiKey = () => clean(config().apiKey, /[^A-Za-z0-9_-]/g);
+
+export const syncConfigured = () => Boolean(projectId() && apiKey());
 
 export function newCode() {
   const b = crypto.getRandomValues(new Uint8Array(CODE_LEN));
@@ -34,8 +39,7 @@ export const onStatus = (fn) => statusListeners.add(fn);
 
 // ——— REST ———
 const docUrl = (id, mask = '') => {
-  const c = config();
-  return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(c.projectId)}/databases/(default)/documents/rooms/${getSyncCode()}/profiles/${id}?key=${encodeURIComponent(c.apiKey)}${mask}`;
+  return `https://firestore.googleapis.com/v1/projects/${projectId()}/databases/(default)/documents/rooms/${getSyncCode()}/profiles/${id}?key=${apiKey()}${mask}`;
 };
 
 async function call(url, init) {
