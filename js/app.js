@@ -5,15 +5,19 @@ import {
 } from './store.js';
 import { initSync, syncNow, connect, disconnect, newCode, normalizeCode, validCode, prettyCode, getStatus, onStatus } from './sync.js';
 import { fileToAvatar } from './avatar.js';
-import { speak } from './speak.js';
+import { speak, canSpeak } from './speak.js';
 import { grade, dueDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
 import { search } from './search.js';
 import { gradeAnswer } from './quiz.js';
+import { BY_WORD } from './words.js';
+import { buildQuestion, randomType } from './listen.js';
+import { mountPad, scoreWriting, paintResult, paintReference } from './write.js';
+import { loadStrokes } from './strokes.js';
 import { normalizeTheme, themeAttr, themeMeta, effectiveMode } from './themes.js';
 import { mountStrokes } from './strokes.js';
 import {
   tabbarHTML, homeView, knownView, hardView, cardResultsHTML, tierBodyHTML, resultsHTML, knownGridHTML, hardGridHTML, quizCount, learnSheetView, learnCount, learnTodo,
-  sheetView, formView, themeSheetView, avatarHTML, profilePickerView, profileSheetView, syncSheetView, dayDetail, setStatsOpen, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
+  sheetView, wordSheetView, formView, listenView, writeView, themeSheetView, avatarHTML, profilePickerView, profileSheetView, syncSheetView, dayDetail, setStatsOpen, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
 } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -36,6 +40,8 @@ const ui = {
   knownSearchOpen: false,
   quizSize: '10',
   quizCustom: '15',
+  quizMode: 'text',
+  listenType: 'mix',
   openTiers: new Set(),
   hardLevel: 0,
   hardQuery: '',
@@ -400,18 +406,99 @@ function bindCard() {
 // ——— Quiz: pinyin → ton → znaczenie ———
 let Q = null;
 
-function startQuiz(deck) {
+function startQuiz(deck, mode = 'text') {
   if (!deck.length) return toast('Najpierw dodaj znane znaki.');
-  Q = { deck, i: 0, step: 'ask', tone: null, pts: 0, full: 0, miss: [], last: null, done: false };
+  if (mode === 'listen' && !canSpeak) return toast('Ta przeglądarka nie obsługuje czytania na głos.');
+  Q = { mode, deck, i: 0, step: 'ask', tone: null, pts: 0, full: 0, miss: [], last: null, done: false, q: null, pad: null };
   openSessionScreen();
   drawQuiz();
 }
 
 function drawQuiz() {
-  sessionEl.innerHTML = Q.done ? quizSummaryView(Q) : Q.step === 'ask' ? quizAskView(Q) : quizResultView(Q);
-  if (Q.done) return;
+  Q.pad?.destroy();
+  Q.pad = null;
+  if (Q.done) { sessionEl.innerHTML = quizSummaryView(Q); return; }
+  if (Q.mode === 'listen') return drawListen();
+  if (Q.mode === 'write') return drawWrite();
+  sessionEl.innerHTML = Q.step === 'ask' ? quizAskView(Q) : quizResultView(Q);
   if (Q.step === 'ask') $('#qz-py')?.focus({ preventScroll: true });
   else $('#qz-next')?.focus({ preventScroll: true });
+}
+
+const speakMsg = (r) => {
+  if (r === 'novoice') toast('Ten telefon nie ma chińskiego głosu. Zainstaluj go w ustawieniach mowy.');
+  else if (r === 'unsupported') toast('Ta przeglądarka nie obsługuje czytania na głos.');
+};
+
+// ——— Quiz ze słuchu ———
+function drawListen() {
+  const c = Q.deck[Q.i];
+  const fresh = Q.step === 'ask' && !Q.q;
+  if (fresh) Q.q = buildQuestion(c, randomType(c, ui.listenType));
+  sessionEl.innerHTML = listenView(Q);
+  if (fresh) speakMsg(speak(c.hanzi));
+  if (Q.step === 'result') $('#qz-next')?.focus({ preventScroll: true });
+}
+
+function listenPick(i) {
+  if (Q.mode !== 'listen' || Q.step !== 'ask') return;
+  const c = Q.deck[Q.i];
+  const ok = Boolean(Q.q.options[i]?.ok);
+  grade(c.key, ok);
+  logReview({ graded: true, ok });
+  if (ok) Q.full++; else Q.miss.push(c);
+  Q.last = { item: c, pick: i, ok };
+  Q.step = 'result';
+  clockTick();
+  drawListen();
+}
+
+// ——— Napisz znak ———
+function drawWrite() {
+  const c = Q.deck[Q.i];
+  sessionEl.innerHTML = writeView(Q);
+  if (Q.step === 'ask') {
+    const sync = () => {
+      const n = Q.pad ? Q.pad.count() : 0;
+      $('#w-undo').disabled = $('#w-clear').disabled = $('#w-check').disabled = n === 0;
+    };
+    Q.pad = mountPad($('#wpad'), sync);
+  } else {
+    const cv = $('#wres');
+    if (Q.last.gaveUp) paintReference(cv, c.hanzi);
+    else paintResult(cv, Q.last.res);
+    $('#qz-next')?.focus({ preventScroll: true });
+  }
+}
+
+async function writeCheck() {
+  if (Q.mode !== 'write' || Q.step !== 'ask' || !Q.pad || !Q.pad.count()) return;
+  const c = Q.deck[Q.i];
+  const strokes = Q.pad.strokes.map((s) => s.map((p) => [...p]));
+  let res;
+  try { res = await scoreWriting(strokes, c.hanzi); } catch { return toast('Brak danych kresek tego znaku. Pominięto.'); }
+  if (!Q || Q.mode !== 'write' || Q.step !== 'ask') return;
+  Q.last = { item: c, score: res.score, strokes: res.strokes, drawn: strokes.length, res };
+  Q.step = 'result';
+  clockTick();
+  drawWrite();
+}
+
+function writeGiveUp() {
+  if (Q.mode !== 'write' || Q.step !== 'ask') return;
+  Q.last = { item: Q.deck[Q.i], gaveUp: true };
+  Q.step = 'result';
+  clockTick();
+  drawWrite();
+}
+
+function writeVerdict(ok) {
+  if (Q.mode !== 'write' || Q.step !== 'result') return;
+  const c = Q.deck[Q.i];
+  grade(c.key, ok);
+  logReview({ graded: true, ok });
+  if (ok) Q.full++; else Q.miss.push(c);
+  quizNext();
 }
 
 function setTone(t) {
@@ -439,6 +526,7 @@ function quizCheck() {
 function quizNext() {
   Q.i++;
   Q.tone = null;
+  Q.q = null;
   Q.step = 'ask';
   if (Q.i >= Q.deck.length) Q.done = true;
   clockTick(!Q.done);
@@ -474,6 +562,7 @@ const afterToggle = (h, msg) => {
 
 const ACTIONS = {
   open: (el) => openChar(el.dataset.h),
+  'open-word': (el) => { const x = BY_WORD.get(el.dataset.w); if (x) openSheet(wordSheetView(x)); },
   'close-sheet': closeSheet,
   theme: openThemes,
   'set-theme': pickTheme,
@@ -542,10 +631,20 @@ const ACTIONS = {
     if (ui.knownSearchOpen) $('#kq')?.focus({ preventScroll: true });
   },
   'quiz-size': (el) => { ui.quizSize = el.dataset.n; render({ keepScroll: true }); },
-  'start-quiz': () => startQuiz(quizDeck(quizCount(ui))),
+  'start-quiz': () => startQuiz(quizDeck(quizCount(ui)), ui.quizMode),
+  'quiz-mode': (el) => { ui.quizMode = el.dataset.m; render({ keepScroll: true }); },
+  'listen-type': (el) => { ui.listenType = el.dataset.m; render({ keepScroll: true }); },
+  'listen-pick': (el) => listenPick(Number(el.dataset.i)),
+  'listen-play': () => speakMsg(speak(Q.deck[Q.i].hanzi)),
+  'listen-slow': () => speakMsg(speak(Q.deck[Q.i].hanzi, 0.5)),
+  'write-undo': () => Q.pad?.undo(),
+  'write-clear': () => Q.pad?.clear(),
+  'write-check': writeCheck,
+  'write-giveup': writeGiveUp,
+  'write-verdict': (el) => writeVerdict(el.dataset.ok === '1'),
   'quiz-tone': (el) => setTone(Number(el.dataset.t)),
   'quiz-next': quizNext,
-  'quiz-retry': () => startQuiz(Q.miss),
+  'quiz-retry': () => startQuiz(Q.miss, Q.mode),
   'quiz-to-hard': () => {
     Q.miss.forEach((c) => { if (!isHard(c.hanzi)) toggleHard(c.hanzi); });
     toast('Dodano błędne znaki do trudnych');

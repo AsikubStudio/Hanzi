@@ -1,10 +1,10 @@
 // Service worker: app shell w cache, działa offline. Podbij VERSION po każdej zmianie plików.
-const VERSION = 'bothanzi-v28';
+const VERSION = 'bothanzi-v29';
 const STROKES_PRECACHE = 700;
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest',
   'css/styles.css', 'css/themes.css',
-  'js/app.js', 'js/data.js', 'js/store.js', 'js/srs.js', 'js/search.js', 'js/ui.js', 'js/quiz.js', 'js/strokes.js', 'js/sentences.js', 'js/themes.js', 'js/sync.js', 'js/speak.js', 'js/config.js', 'js/avatar.js',
+  'js/app.js', 'js/data.js', 'js/store.js', 'js/srs.js', 'js/search.js', 'js/ui.js', 'js/quiz.js', 'js/strokes.js', 'js/sentences.js', 'js/themes.js', 'js/sync.js', 'js/speak.js', 'js/words.js', 'js/listen.js', 'js/write.js', 'js/config.js', 'js/avatar.js',
   'icons/logo.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
 ];
 

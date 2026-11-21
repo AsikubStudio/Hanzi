@@ -1,9 +1,9 @@
-# BotHanzi: architektura (v0.23)
+# BotHanzi: architektura (v0.24)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
 - Dane po stronie klienta; postęp w localStorage (`bothanzi:v2`, osobno dla profili Asia i Kuba). Bez kont; opcjonalna synchronizacja między telefonami przez Firestore i kod parowania (v0.16).
-- Język interfejsu: polski. Znaczenia: polski + angielski.
+- Język interfejsu: polski. Znaczenia: polski + angielski. Znaki i słowa (słowa tylko HSK 1–3).
 - Standard: sylabus HSK 3.0 (od v0.23; wcześniej HSK 2.0), poziomy 1–6; poziom 7 oznacza „6+” (HSK 7–9).
 
 ## Model danych
@@ -84,6 +84,14 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 - Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
 - `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
 
+## Zmiany w v0.24 (słowa, quiz ze słuchu, pisanie znaku)
+- **Słowa** (`js/words.js`): 634 słowa wieloznakowe z list HSK 3.0 poziomów 1–3 (157 / 116 / 361), rekord `[słowo, pinyin bez spacji, poziom, EN, PL]`; znaczenia pisane ręcznie (źródłowy słownik ma błędy, np. 告诉, 东西), do przeglądu w `znaczenia-do-przegladu-slowa.csv`. `searchWords(q)` szuka po znakach, pinyin bez tonów (całe słowo: „kafei”, „mianbao”) i znaczeniach PL/EN; `wordsWith(znak)` daje słowa zawierające znak. UI: wyniki wyszukiwania mają sekcję „Słowa (N)” pod znakami, karta znaku ma „Słowa z tym znakiem” (do 8), a dotknięcie słowa otwiera kartę słowa (`wordSheetView`: duże słowo, pinyin, głośnik, znaczenia, kafelki znaków). Słowa nie mają własnego stanu (ani znane, ani SRS), więc nic nie dochodzi do synchronizacji.
+- **Odpytaj się ma trzy tryby** (`ui.quizMode`: Pisemny / Ze słuchu / Pisanie): chipy na górze panelu w „Znanych”. Wynik każdego trybu zasila SRS tak jak dotąd (`grade`, `logReview`). Wspólne: pula to znane znaki, liczba 10/30/50/własna, „Powtórz błędne”, „Dodaj błędne do trudnych”; podsumowanie bez punktów dla trybów innych niż pisemny.
+- **Quiz ze słuchu** (`js/listen.js`, `listenView`): aplikacja czyta znak (Web Speech, jak wymowa), a Ty wybierasz jedną z czterech odpowiedzi: pinyin z tonem, znak albo znaczenie PL (chipy: Mieszane / Pinyin / Znak / Znaczenie). Złe odpowiedzi budowane z bazy: „mylące” (to samo pinyin bez tonu, inny ton), potem z tego samego poziomu, potem dowolne; nigdy znak o tym samym brzmieniu co poprawny (żeby nie było dwóch dobrych) ani synonim. Znaki wieloodczytaniowe nie dostają pytania o pinyin, bo głos może czytać każde odczytanie. Przyciski: odtwórz ponownie i „wolniej” (tempo 0,5). Pytanie jest czytane od razu po pokazaniu (ten sam gest dotknięcia).
+- **Napisz znak** (`js/write.js`, `writeView`): pokazuje pinyin i znaczenie, Ty rysujesz znak palcem na płótnie (pointer events, `touch-action: none`, przyciski „Cofnij kreskę” i „Wyczyść”). Ocena liczy tylko ogólny kształt, nie kolejność ani liczbę kresek: rysunek jest przesuwany i skalowany do ramki wzoru, potem porównywany z liniami środkowymi kresek wzoru (`strokes/*.json`, pole `m`) metodą „miękkiej” odległości w obie strony (pokrycie i precyzja, średnia harmoniczna; zasięg ok. 9% wymiaru). Próg `PASS` = 0,65 tylko podpowiada werdykt: po sprawdzeniu widać wzór (zielony) i rysunek (różowy), a Ty zatwierdzasz „Zaliczone” albo „Do powtórki” (można zmienić werdykt automatu). „Nie pamiętam” pokazuje wzór i liczy jako błąd. Kalibracja na próbnych rysunkach: poprawne 0,73–0,96, błędne znaki do 0,70.
+- Ograniczenie oceny: bardzo podobne znaki (日/目) mogą dostać wysoki wynik, stąd korekta użytkownika.
+- Service worker: `bothanzi-v29` (w app shellu `js/words.js`, `js/listen.js`, `js/write.js`).
+
 ## Zmiany w v0.23 (przejście na sylabus HSK 3.0)
 - **Standard poziomów**: od v0.23 poziomy znaków wynikają z sylabusu HSK 3.0 (CLEC, listopad 2025; pierwsze egzaminy 13.12.2026), a nie z HSK 2.0. Źródło: `complete.json` z drkameleon/complete-hsk-vocabulary, tagi `newest-1…7` (to lista słów sylabusu z 2025; tagi `new-*` to starsza wersja z 2021). Znak dostaje najniższy poziom słowa, w którym występuje. Narastające sumy znaków z tych list: 248 (HSK 1), 371 (HSK 2), 653 (HSK 3), czyli prawie dokładnie oficjalne 246 / 371 / 655. Od HSK 4 wyliczone sumy są większe od oficjalnych (np. 1092 zamiast 1000), bo oficjalna lista znaków ma własny podział, którego nie ma w liście słów; dlatego poziomy 4–6 zaimportujemy dopiero po znalezieniu oficjalnej listy znaków (rozpoznawanych).
 - **Baza**: 660 znaków (HSK 1: 248, HSK 2: 123, HSK 3: 282, HSK 4: 5, HSK 5: 1, HSK 6+: 1). HSK 1–3 są kompletne. Dodano 299 znaków (10 / 30 / 259), 87 znaków z bazy zmieniło poziom (np. 新, 要, 也, 到 z HSK 2 na 1; 北 na 3, 京 na 4). Postęp jest zapisany po znaku, więc nic się nie gubi. Kolejność w poziomie: najpierw znaki będące słowami jednoznakowymi, potem wg częstości słowa.
@@ -157,7 +165,7 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 ## Następne kroki
 0. **Zrobione w v0.16: profile Asia i Kuba** (kod gotowy). Do włączenia synchronizacji trzeba założyć projekt Firebase wg `docs/FIREBASE.md` i wpisać klucze w `js/config.js`. Do rozważenia: powiadomienie „Asia powtórzyła dziś N kart”.
 0b. **Zrobione w v0.14–v0.16: motywy kolorystyczne** (motyw i tryb są w danych profilu). Dziś są dwa tryby (jasny i ciemny) oparte na zmiennych CSS (`--bg`, `--surface`, `--pink`, `--gold` itd.), więc motywy to zestawy tych zmiennych wybierane atrybutem `data-theme`. Do ustalenia: ile motywów i jakie (np. obecny zielono-różowy, nocny granat, ciepły bursztyn), czy motyw jest per profil, czy per urządzenie, oraz czy zmieniają się też hero (góry, słońce) i kafel serii. Wybór zapisany w stanie (`theme`) i w `theme-color` meta.
-1. Dalej: poziomy 4–6 wg sylabusu HSK 3.0 (po znalezieniu oficjalnej listy znaków rozpoznawanych; ok. 1700 znaków, więc w partiach po ~400); przegląd polskich znaczeń HSK 1–3. Zrobione w v0.23: HSK 1–3 wg HSK 3.0; v0.22: HSK 2. Zrobione w v0.19: kontrola danych, kreski przy pierwszym użyciu, wymowa, karta „Ostatnie 7 dni”. Zostaje: eksport/import postępu (JSON; projekt: plik z profilem, import scala lub zastępuje po podsumowaniu), przegląd polskich znaczeń HSK 1 (plik CSV do przeglądu).
-2. Audio; tryb ćwiczenia rysowania znaku palcem.
+1. Zrobione w v0.24: słowa HSK 1–3, quiz ze słuchu, pisanie znaku. Dalej: poziomy 4–6 wg sylabusu HSK 3.0 (po znalezieniu oficjalnej listy znaków rozpoznawanych; ok. 1700 znaków, więc w partiach po ~400); przegląd polskich znaczeń HSK 1–3. Zrobione w v0.23: HSK 1–3 wg HSK 3.0; v0.22: HSK 2. Zrobione w v0.19: kontrola danych, kreski przy pierwszym użyciu, wymowa, karta „Ostatnie 7 dni”. Zostaje: eksport/import postępu (JSON; projekt: plik z profilem, import scala lub zastępuje po podsumowaniu), przegląd polskich znaczeń HSK 1 (plik CSV do przeglądu).
+2. Nagrane audio (zamiast syntezy mowy telefonu); słowa HSK 4+ razem z poziomami 4–6; ewentualnie słowa jako osobne fiszki (SRS).
 3. Eksport/import postępu (JSON) i ewentualna synchronizacja.
 4. Weryfikacja iOS: instalacja z Safari, ikony, pasek stanu.

@@ -5,6 +5,8 @@ import { canSpeak } from './speak.js';
 import { syncConfigured, prettyCode } from './sync.js';
 import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
 import { search } from './search.js';
+import { wordsWith, searchWords } from './words.js';
+import { PASS } from './write.js';
 import { toneOf, TONE_LABEL } from './quiz.js';
 import { bestSentence } from './sentences.js';
 import { FAMILIES, effectiveMode } from './themes.js';
@@ -368,6 +370,14 @@ export function homeView(ui) {
 
 // ——— Znane ———
 export const QUIZ_SIZES = ['10', '30', '50', 'custom'];
+export const QUIZ_MODES = [['text', 'Pisemny'], ['listen', 'Ze słuchu'], ['write', 'Pisanie']];
+const QUIZ_HINT = {
+  text: 'Podaj pinyin, ton i znaczenie znaków, które już znasz.',
+  listen: 'Posłuchaj znaku i wybierz pinyin z tonem, znak albo znaczenie.',
+  write: 'Zobaczysz pinyin i znaczenie, a znak napiszesz palcem. Liczy się ogólny kształt, nie kolejność kresek.',
+};
+const QUIZ_START = { text: 'Zacznij quiz', listen: 'Zacznij słuchanie', write: 'Zacznij pisanie' };
+const LISTEN_CHIPS = [['mix', 'Mieszane'], ['py', 'Pinyin'], ['hz', 'Znak'], ['pl', 'Znaczenie']];
 
 export function quizCount(ui) {
   const kc = knownCount();
@@ -409,11 +419,13 @@ export function knownView(ui) {
         placeholder="Szukaj wśród znanych" value="${esc(ui.knownQuery)}" aria-label="Szukaj wśród znanych znaków"></div>` : ''}
     <section class="panel quiz-setup">
       <h2>Odpytaj się</h2>
-      <p class="muted">Podaj pinyin, ton i znaczenie znaków, które już znasz.</p>
+      <div class="chips" role="group" aria-label="Rodzaj quizu">${QUIZ_MODES.map(([m, l]) => chip(l, ui.quizMode === m, 'quiz-mode', `data-m="${m}"`)).join('')}</div>
+      <p class="muted">${QUIZ_HINT[ui.quizMode]}</p>
+      ${ui.quizMode === 'listen' ? `<div class="chips" role="group" aria-label="Rodzaj pytań">${LISTEN_CHIPS.map(([m, l]) => chip(l, ui.listenType === m, 'listen-type', `data-m="${m}"`)).join('')}</div>` : ''}
       <div class="chips" role="group" aria-label="Liczba znaków w quizie">${sizeChips}</div>
       ${ui.quizSize === 'custom' ? `<label class="num">Liczba znaków (1–${kc})
         <input id="quiz-n" type="number" inputmode="numeric" min="1" max="${kc}" value="${esc(ui.quizCustom)}"></label>` : ''}
-      <div class="btn-row"><button class="btn primary" type="button" data-act="start-quiz">Zacznij quiz (${quizCount(ui)})</button></div>
+      <div class="btn-row"><button class="btn primary" type="button" data-act="start-quiz">${QUIZ_START[ui.quizMode]} (${quizCount(ui)})</button></div>
     </section>
     <div class="chips" role="group" aria-label="Filtr poziomu">${chips}</div>
     <div id="known-grid">${knownGridHTML(ui)}</div>`;
@@ -496,17 +508,51 @@ export function learnSheetView(lv) {
 }
 
 // ——— Wyniki wyszukiwania (panel pod górnym paskiem) ———
+// Wiersz słowa: dotknięcie otwiera kartę słowa, osobny przycisk czyta słowo na głos.
+export const wordRowHTML = (x) => `<li class="row"><button class="row-main" type="button" data-act="open-word" data-w="${esc(x.w)}">
+    <span class="hz-w" lang="zh">${esc(x.w)}</span>
+    <span><b>${esc(x.pinyin)}</b><small>${esc(x.pl)} · ${esc(x.en)}</small></span>
+  </button>${speakBtn(x.w)}</li>`;
+
 export function resultsHTML(list, query) {
   if (!query.trim()) return '';
-  if (!list.length) {
+  const words = searchWords(query);
+  if (!list.length && !words.length) {
     return `<div class="empty small"><p>Brak wyników dla „${esc(query)}”. Spróbuj krótszej frazy albo innego języka.</p></div>`;
   }
-  return `<p class="muted count-line">${list.length} ${list.length === 1 ? 'wynik' : 'wyników'}</p>
-    <ul class="rows">${list.map((c) => `<li class="row"><button class="row-main" data-act="open" data-h="${esc(c.hanzi)}">
+  const n = list.length + words.length;
+  const chars = list.length ? `<ul class="rows">${list.map((c) => `<li class="row"><button class="row-main" data-act="open" data-h="${esc(c.hanzi)}">
       <span class="hz-sm">${esc(c.hanzi)}</span>
       <span><b>${esc(c.pinyin)}</b><small>${esc(c.pl)} · ${esc(c.en)}</small></span>
       ${isKnown(c.hanzi) ? '<i class="dot" title="Znany"></i>' : ''}
-    </button></li>`).join('')}</ul>`;
+    </button></li>`).join('')}</ul>` : '';
+  const ws = words.length ? `<h3 class="res-h">Słowa (${words.length})</h3><ul class="rows">${words.map(wordRowHTML).join('')}</ul>` : '';
+  return `<p class="muted count-line">${n} ${n === 1 ? 'wynik' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'wyniki' : 'wyników'}</p>${chars}${ws}`;
+}
+
+// Słowa zawierające znak (w karcie znaku).
+export function wordsSectionHTML(hanzi) {
+  const list = wordsWith(hanzi);
+  if (!list.length) return '';
+  return `<section class="words" aria-label="Słowa z tym znakiem"><h3 class="res-h">Słowa z tym znakiem</h3>
+    <ul class="rows">${list.slice(0, 8).map(wordRowHTML).join('')}</ul>
+    ${list.length > 8 ? `<p class="muted words-more">i ${list.length - 8} więcej: wpisz znak w wyszukiwarce</p>` : ''}</section>`;
+}
+
+export function wordSheetView(x) {
+  const lv = LEVELS.find((l) => l.n === x.hsk);
+  const chars = [...new Set(x.w)].map((h) => BY_HANZI.get(h)).filter(Boolean);
+  return `<div class="sheet-backdrop" data-act="close-sheet"></div>
+    <section class="sheet" role="dialog" aria-modal="true" aria-label="Słowo ${esc(x.w)}">
+      <div class="grab" aria-hidden="true"></div>
+      <p class="word-hz" lang="zh">${esc(x.w)}</p>
+      <p class="sheet-py">${esc(x.pinyin)}${speakBtn(x.w)}</p>
+      <div class="sheet-meta"><p class="pill">${lv ? lv.label : ''}</p></div>
+      <dl class="meanings"><div><dt>Polski</dt><dd>${esc(x.pl)}</dd></div><div><dt>English</dt><dd>${esc(x.en)}</dd></div></dl>
+      <h3 class="res-h">Znaki w tym słowie</h3>
+      <div class="grid word-chars">${chars.map((c) => tile(c)).join('')}</div>
+      <div class="btn-col"><button class="btn" type="button" data-act="close-sheet">Zamknij</button></div>
+    </section>`;
 }
 
 // ——— Zdanie przykładowe: znak pogrubiony na różowo, nieznane znaki z bazy przyciemnione ———
@@ -704,6 +750,7 @@ export function sheetView(c) {
       <div class="sheet-meta"><p class="pill">${lv ? lv.label : ''}</p>${whoHTML(c.hanzi)}</div>
       <dl class="meanings"><div><dt>Polski</dt><dd>${esc(c.pl)}</dd></div><div><dt>English</dt><dd>${esc(c.en)}</dd></div></dl>
       ${sentenceHTML(c.hanzi)}
+      ${wordsSectionHTML(c.hanzi)}
       <div class="btn-col">
         <button class="btn primary" data-act="toggle-known" data-h="${esc(c.hanzi)}">${known ? 'Usuń ze znanych' : 'Oznacz jako znany'}</button>
         <button class="btn" data-act="toggle-hard" data-h="${esc(c.hanzi)}">${hard ? 'Usuń z trudnych' : 'Dodaj do trudnych'}</button>
@@ -859,15 +906,90 @@ export function quizResultView(Q) {
 
 export function quizSummaryView(Q) {
   const max = Q.deck.length * 3;
+  const text = !Q.mode || Q.mode === 'text';
   return `<div class="session-top"><button class="icon-btn" data-act="end-session" aria-label="Zamknij">${ICONS.close}</button></div>
     <div class="summary">
       <p class="summary-score">${Q.full}<span>/${Q.deck.length}</span></p>
-      <p class="summary-line">znaków w pełni poprawnie</p>
-      <p class="summary-line">Punkty: ${Q.pts} z ${max}</p>
+      <p class="summary-line">${text ? 'znaków w pełni poprawnie' : 'znaków poprawnie'}</p>
+      ${text ? `<p class="summary-line">Punkty: ${Q.pts} z ${max}</p>` : ''}
       ${Q.miss.length ? `<ul class="miss-list" aria-label="Znaki do powtórki">${Q.miss.map((c) => `<li><span class="hz-sm" lang="zh">${esc(c.hanzi)}</span><span>${esc(c.pinyin)}</span></li>`).join('')}</ul>` : ''}
       <div class="btn-col">
         ${Q.miss.length ? '<button class="btn primary" data-act="quiz-retry">Powtórz błędne</button><button class="btn" data-act="quiz-to-hard">Dodaj błędne do trudnych</button>' : ''}
         <button class="btn ${Q.miss.length ? '' : 'primary'}" data-act="end-session">Zamknij</button>
       </div>
     </div>`;
+}
+
+// ——— Quiz ze słuchu ———
+const sessionTop = (Q, n, closeLabel) => `<div class="session-top">
+      <button class="icon-btn" data-act="end-session" aria-label="${closeLabel}">${ICONS.close}</button>
+      <div class="bar on-dark" role="progressbar" aria-valuemin="0" aria-valuemax="${Q.deck.length}" aria-valuenow="${n}"><i style="width:${(n / Q.deck.length) * 100}%"></i></div>
+      <span class="session-n">${Q.i + 1}/${Q.deck.length}</span>
+    </div>`;
+
+const LISTEN_PROMPT = { py: 'Jak to się czyta?', hz: 'Który to znak?', pl: 'Co to znaczy?' };
+
+export function listenView(Q) {
+  const c = Q.deck[Q.i];
+  const q = Q.q;
+  const res = Q.step === 'result' ? Q.last : null;
+  const opts = q.options.map((o, i) => {
+    const cls = res ? (o.ok ? ' ok' : res.pick === i ? ' bad' : '') : '';
+    return `<button class="lopt${q.type === 'hz' ? ' hz' : ''}${cls}" type="button" data-act="listen-pick" data-i="${i}" ${res ? 'disabled' : ''} ${q.type === 'hz' ? 'lang="zh"' : ''}>${esc(o.label)}</button>`;
+  }).join('');
+  const reveal = res ? `<div class="listen-reveal ${res.ok ? 'ok' : 'bad'}">
+      <span class="hz-sm" lang="zh">${esc(c.hanzi)}</span>
+      <span><b>${esc(c.pinyin)}</b><small>${esc(c.pl)} · ${esc(c.en)}</small></span></div>
+    <div class="quiz-form"><button class="btn primary" type="button" data-act="quiz-next" id="qz-next">${Q.i + 1 >= Q.deck.length ? 'Zobacz wynik' : 'Dalej'}</button></div>` : '';
+  return `${sessionTop(Q, res ? Q.i + 1 : Q.i, 'Zakończ quiz')}
+    <div class="stage listen-stage">
+      <button class="listen-play" type="button" data-act="listen-play" aria-label="Odtwórz jeszcze raz">${ICONS.speaker}</button>
+      <button class="listen-slow" type="button" data-act="listen-slow">wolniej</button>
+      <p class="listen-q">${LISTEN_PROMPT[q.type]}</p>
+    </div>
+    <div class="lopts" role="group" aria-label="Odpowiedzi">${opts}</div>
+    ${reveal}`;
+}
+
+// ——— Napisz znak ———
+export function writeView(Q) {
+  const c = Q.deck[Q.i];
+  const r = Q.step === 'result' ? Q.last : null;
+  const head = `<div class="write-head"><p class="write-py">${esc(c.pinyin)}${speakBtn(c.hanzi)}</p><p class="write-pl">${esc(c.pl)}</p></div>`;
+  if (!r) {
+    return `${sessionTop(Q, Q.i, 'Zakończ quiz')}
+      <div class="stage write-stage">
+        ${head}
+        <div class="wpad"><canvas id="wpad" aria-label="Pole do pisania znaku palcem"></canvas></div>
+        <div class="write-tools">
+          <button class="btn ghost" type="button" data-act="write-undo" id="w-undo" disabled>Cofnij kreskę</button>
+          <button class="btn ghost" type="button" data-act="write-clear" id="w-clear" disabled>Wyczyść</button>
+        </div>
+      </div>
+      <div class="quiz-form">
+        <button class="btn primary" type="button" data-act="write-check" id="w-check" disabled>Sprawdź</button>
+        <button class="btn ghost" type="button" data-act="write-giveup">Nie pamiętam</button>
+      </div>`;
+  }
+  const last = Q.i + 1 >= Q.deck.length;
+  let body;
+  if (r.gaveUp) {
+    body = `<p class="write-verdict bad">Zapamiętaj wzór. Ten znak wróci do powtórki.</p>
+      <div class="quiz-form"><button class="btn primary" type="button" data-act="write-verdict" data-ok="0" id="qz-next">${last ? 'Zobacz wynik' : 'Dalej'}</button></div>`;
+  } else {
+    const pct = Math.round(r.score * 100);
+    const good = r.score >= PASS;
+    body = `<p class="write-verdict ${good ? 'ok' : 'bad'}">${good ? 'Wygląda dobrze' : 'Kształt odbiega od wzoru'} <b>${pct}%</b></p>
+      <p class="write-note">Kreski: wzór ${r.strokes}, Ty ${r.drawn}. Zielony to wzór, różowy to Twój rysunek.</p>
+      <div class="quiz-form">
+        <button class="btn primary" type="button" data-act="write-verdict" data-ok="${good ? 1 : 0}" id="qz-next">${good ? 'Zaliczone' : 'Do powtórki'}</button>
+        <button class="btn ghost" type="button" data-act="write-verdict" data-ok="${good ? 0 : 1}">${good ? 'Jednak do powtórki' : 'Jednak zaliczone'}</button>
+      </div>`;
+  }
+  return `${sessionTop(Q, Q.i + 1, 'Zakończ quiz')}
+    <div class="stage write-stage">
+      ${head}
+      <div class="wpad result"><canvas id="wres" aria-label="Wzór znaku i Twój rysunek"></canvas></div>
+    </div>
+    ${body}`;
 }

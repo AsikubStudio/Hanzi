@@ -644,3 +644,58 @@ body.in-picker { overflow: hidden; }
 .cf-manual { margin-top: 14px; }
 .cf-manual > summary { cursor: pointer; color: var(--ink-2); font-size: .92rem; padding: 6px 0; }
 .cf-manual[open] > summary { margin-bottom: 4px; }
+
+/* ——— Słowa ——— */
+.hz-w { font: 400 1.45rem/1.1 var(--hanzi); min-width: 3.6rem; max-width: 6.4rem; text-align: center; overflow-wrap: anywhere; }
+.row .speak-btn { margin: 0 8px 0 0; flex: none; }
+.res-h { font-size: .8rem; font-weight: 600; color: var(--ink-2); margin: 18px 0 0; text-transform: none; letter-spacing: 0; }
+.words { margin-top: 6px; width: 100%; text-align: left; }
+.words .rows { margin-top: 6px; }
+.words-more { margin: 6px 0 0; font-size: .85rem; }
+.word-hz { font: 400 4.2rem/1.1 var(--hanzi); text-align: center; margin: 4px 0 0; }
+.word-chars { margin-top: 8px; }
+
+/* ——— Quiz ze słuchu ——— */
+.listen-stage { align-content: center; justify-items: center; gap: 10px; }
+.listen-play { display: grid; place-items: center; width: 108px; height: 108px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .08); color: var(--pink-bright); }
+.listen-play .ico { width: 46px; height: 46px; }
+.listen-play:active { transform: scale(.96); }
+.listen-slow { border: 0; background: none; color: var(--st-ink-2); font-size: .88rem; text-decoration: underline; text-underline-offset: 3px; padding: 6px 10px; }
+.listen-q { color: var(--st-ink); font: 600 1.25rem/1.2 var(--serif); margin: 4px 0 0; }
+.lopts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: min(100%, 420px); margin: 0 auto 14px; }
+.lopt {
+  min-height: 64px; padding: 8px 10px; border-radius: 14px; border: 1.5px solid rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .06);
+  color: var(--st-ink); font: 500 1.05rem/1.25 var(--sans, inherit); text-align: center; overflow-wrap: anywhere;
+}
+.lopt.hz { font: 400 2.2rem/1 var(--hanzi); min-height: 78px; }
+.lopt:not(:disabled):active { background: rgba(255, 255, 255, .14); }
+.lopt.ok { background: #4f7357; border-color: #4f7357; color: #fff; }
+.lopt.bad { background: var(--pink-bright); border-color: var(--pink-bright); color: var(--on-st); }
+.lopt:disabled:not(.ok):not(.bad) { opacity: .45; }
+.listen-reveal { display: flex; align-items: center; gap: 14px; width: min(100%, 420px); margin: 0 auto 12px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, .07); }
+.listen-reveal .hz-sm { color: var(--st-ink); }
+.listen-reveal span:nth-child(2) { display: grid; min-width: 0; }
+.listen-reveal small { color: var(--st-ink-2); }
+.listen-reveal b { color: var(--pink-bright); }
+
+/* ——— Napisz znak ——— */
+.write-stage { align-content: center; justify-items: center; gap: 10px; }
+.write-head { text-align: center; }
+.write-py { font: 600 1.9rem/1.2 var(--serif); color: var(--pink-bright); margin: 0; }
+.write-py .speak-btn { background: rgba(255, 255, 255, .1); color: var(--st-ink); }
+.write-pl { color: var(--st-ink-2); margin: 2px 0 0; }
+.wpad { position: relative; width: min(100%, 340px, 46vh); aspect-ratio: 1; border-radius: 18px; background: rgba(255, 255, 255, .06); border: 1.5px solid rgba(255, 255, 255, .22); touch-action: none; }
+.wpad::before, .wpad::after { content: ''; position: absolute; pointer-events: none; }
+.wpad::before { left: 50%; top: 8px; bottom: 8px; border-left: 1.5px dashed rgba(255, 255, 255, .14); }
+.wpad::after { top: 50%; left: 8px; right: 8px; border-top: 1.5px dashed rgba(255, 255, 255, .14); }
+.wpad canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; border-radius: inherit; z-index: 1; }
+.write-tools { display: flex; gap: 10px; justify-content: center; }
+.session .btn.ghost { background: transparent; border: 1.5px solid rgba(255, 255, 255, .25); color: var(--st-ink); min-height: 46px; }
+.session .btn.ghost:disabled { opacity: .4; }
+.write-verdict { text-align: center; font: 600 1.25rem/1.3 var(--serif); margin: 0 0 4px; }
+.write-verdict.ok { color: #8fd1a1; }
+.write-verdict.bad { color: var(--pink-bright); }
+.write-note { text-align: center; color: var(--st-ink-2); font-size: .86rem; margin: 0 0 12px; }
+.quiz-form .btn.primary:disabled { opacity: .45; }
+.quiz-setup .chips + .muted, .quiz-setup .muted + .chips { margin-top: 10px; }
+.quiz-setup .muted { margin-bottom: 0; }
