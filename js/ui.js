@@ -354,7 +354,6 @@ export function homeView(ui) {
       </div>
     </section>
     ${ctas ? `<div class="cta-row">${ctas}</div>` : ''}
-    ${peerCardHTML()}
     ${weekCardHTML()}
     <section class="stats" aria-label="Statystyki">
       <div class="stat"><b>${known}</b><span>znane</span></div>
@@ -558,31 +557,11 @@ function weekRow(id) {
     <div class="mlamps">${lamps}</div><div class="mn"><b>${n}</b><small>${dayWord(n)}</small></div></div>`;
 }
 
-// Karta drugiej osoby: ranga, liczba znaków, pasek do kolejnej rangi i seria.
-export function peerCardHTML() {
-  const me = currentId();
-  const other = PROFILE_IDS.find((id) => id !== me);
-  if (!me || !other) return '';
-  const o = peerState(other);
-  const p = profileInfo(other);
-  const k = knownCountOf(other);
-  const r = rankInfo(k);
-  const n = streakOf(other);
-  const today = (o.activity || {})[dayStamp()] || 0;
-  const todayTxt = today ? `dziś: ${today} ${plural(today, 'karta', 'karty', 'kart')}` : 'dziś jeszcze nie';
-  return `<section class="peer" aria-label="Postęp: ${esc(p.name)}">
-    ${avatarHTML(other, 'md')}
-    <div class="peer-main"><b>${esc(p.name)}</b><small>${r.name} · ${k} ${plural(k, 'znak', 'znaki', 'znaków')} · ${todayTxt}</small>
-      <div class="bar" role="progressbar" aria-label="Postęp ${esc(p.name)} do kolejnej rangi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(r.pct)}"><i style="width:${r.pct}%"></i></div></div>
-    <div class="peer-streak" role="img" aria-label="Seria: ${n} ${dayWord(n)}">${lampSVG('peer', n, today)}<b>${n}</b><small>${dayWord(n)}</small></div>
-  </section>`;
-}
-
 export function weekCardHTML() {
   const me = currentId();
   const other = PROFILE_IDS.find((id) => id !== me);
   if (!me || !other) return '';
-  return `<section class="week" aria-label="Ostatnie 7 dni"><h3>Ostatnie 7 dni</h3>${weekRow(me)}${weekRow(other)}</section>`;
+  return `<section class="week" aria-label="Ostatnie 7 dni">${weekRow(me)}${weekRow(other)}</section>`;
 }
 
 // ——— Profile: awatary, kto ma znak, ekran wyboru, edycja, synchronizacja ———
