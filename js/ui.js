@@ -5,6 +5,7 @@ import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
 import { search } from './search.js';
 import { toneOf, TONE_LABEL } from './quiz.js';
 import { bestSentence } from './sentences.js';
+import { THEMES } from './themes.js';
 
 export const esc = (s = '') =>
   String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -23,6 +24,7 @@ export const ICONS = {
   check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
   translate: svg('<path d="M3.5 5.5h9M8 3.5v2M5.2 5.5c.6 3.2 2.8 5.6 5.8 7M11 5.5c-.6 3-3 5.8-7 7.5"/><path d="M12.5 20.5l3.6-9 3.6 9M13.9 17.4h4.4"/>'),
   chevron: svg('<path d="M7 10l5 5 5-5"/>'),
+  palette: svg('<path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-.9 2-1.8 0-.7-.4-1.2-.4-1.9 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1" fill="currentColor"/><circle cx="10" cy="7" r="1" fill="currentColor"/><circle cx="15" cy="7.5" r="1" fill="currentColor"/>'),
 };
 
 export const TABS = [
@@ -106,8 +108,8 @@ function forestSVG(known) {
   }
   return `<svg class="forest" viewBox="0 30 360 150" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
     <defs>
-      <radialGradient id="halo"><stop offset="0" stop-color="#f07aa0" stop-opacity=".55"/><stop offset="1" stop-color="#f07aa0" stop-opacity="0"/></radialGradient>
-      <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfeadb" stop-opacity="0"/><stop offset=".55" stop-color="#cfeadb" stop-opacity=".16"/><stop offset="1" stop-color="#cfeadb" stop-opacity="0"/></linearGradient>
+      <radialGradient id="halo"><stop class="s-pink" offset="0" stop-opacity=".55"/><stop class="s-pink" offset="1" stop-opacity="0"/></radialGradient>
+      <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1"><stop class="s-cloud" offset="0" stop-opacity="0"/><stop class="s-cloud" offset=".55" stop-opacity=".16"/><stop class="s-cloud" offset="1" stop-opacity="0"/></linearGradient>
     </defs>
     <circle cx="262" cy="84" r="46" fill="url(#halo)"/><circle class="sun" cx="262" cy="84" r="18"/>
     <circle class="moongate" cx="262" cy="84" r="27"/>
@@ -138,19 +140,18 @@ const dayWord = (n) => (n === 1 ? 'dzień' : 'dni');
 // Lampion (wspólny kształt): współrzędne lokalne, początek na środku zawieszenia.
 // lit = zapalony: różowy korpus, jasne wnętrze i poświata; zgaszony: ciemny obrys.
 function lampion(x, y, sc, lit, i) {
-  const rib = lit ? '#b83a68' : '#5a8a75';
-  const cap = lit ? '#5c1f3a' : '#4d7b67';
+  // Kolory przez klasy i zmienne CSS (--lamp*), żeby lampiony zmieniały się wraz z motywem; stan świecenia to klasa .lit.
   const glow = lit ? `<circle class="lamp-halo" cx="0" cy="21" r="24" fill="url(#lampGlow)" style="--d:${(i * 0.37).toFixed(2)}s"/>` : '';
   const body = lit
-    ? '<ellipse cx="0" cy="18" rx="11" ry="12" fill="#f07aa0"/><ellipse cx="0" cy="18" rx="6.2" ry="8.4" fill="#ffd9e5" opacity=".9"/>'
-    : '<ellipse cx="0" cy="18" rx="11" ry="12" fill="#173629" stroke="#6f9f8a" stroke-width="1.2"/>';
+    ? '<ellipse class="lp-body" cx="0" cy="18" rx="11" ry="12"/><ellipse class="lp-hi" cx="0" cy="18" rx="6.2" ry="8.4" opacity=".9"/>'
+    : '<ellipse class="lp-off" cx="0" cy="18" rx="11" ry="12" stroke-width="1.2"/>';
   return `<g transform="translate(${x} ${y}) scale(${sc})"><g class="lamp${lit ? ' lit' : ''}" style="--d:${(i * 0.45).toFixed(2)}s">
     ${glow}
-    <path d="M0 -6V3" stroke="${cap}" stroke-width="1" fill="none"/>
+    <path class="lp-cap-s" d="M0 -6V3" stroke-width="1" fill="none"/>
     ${body}
-    <path d="M0 6V30M-6.2 7Q-9.8 18-6.2 29M6.2 7Q9.8 18 6.2 29" stroke="${rib}" stroke-width=".9" fill="none"/>
-    <rect x="-6" y="3" width="12" height="3.2" rx="1.2" fill="${cap}"/><rect x="-5" y="29.5" width="10" height="3.2" rx="1.2" fill="${cap}"/>
-    <path d="M0 32.7V39" stroke="${lit ? '#f07aa0' : '#6f9f8a'}" stroke-width="1.1"/><circle cx="0" cy="40" r="1.5" fill="${lit ? '#ffb3cb' : '#6f9f8a'}"/>
+    <path class="lp-rib" d="M0 6V30M-6.2 7Q-9.8 18-6.2 29M6.2 7Q9.8 18 6.2 29" stroke-width=".9" fill="none"/>
+    <rect class="lp-cap" x="-6" y="3" width="12" height="3.2" rx="1.2"/><rect class="lp-cap" x="-5" y="29.5" width="10" height="3.2" rx="1.2"/>
+    <path class="lp-tassel" d="M0 32.7V39" stroke-width="1.1"/><circle class="lp-bead" cx="0" cy="40" r="1.5"/>
   </g></g>`;
 }
 
@@ -187,7 +188,7 @@ function garlandHTML(days) {
     `<i class="ember" style="--x:${(4 + ((i * 53) % 92)).toFixed(0)}%;--y:${(14 + ((i * 37) % 70)).toFixed(0)}%;--d:${((i * 0.41) % 2.4).toFixed(2)}s"></i>`).join('') : '';
   return `<div class="garland" aria-hidden="true" style="height:${h}px">
     <svg class="cord-svg" viewBox="0 0 100 ${h}" preserveAspectRatio="none" overflow="visible">
-      <defs><radialGradient id="lampGlow"><stop offset="0" stop-color="#ff8fb4" stop-opacity=".62"/><stop offset="1" stop-color="#ff8fb4" stop-opacity="0"/></radialGradient></defs>
+      <defs><radialGradient id="lampGlow"><stop class="s-glow" offset="0" stop-opacity=".62"/><stop class="s-glow" offset="1" stop-opacity="0"/></radialGradient></defs>
       ${cords}
     </svg>${lamps}${sparks}
   </div>`;
@@ -482,6 +483,22 @@ export function sentenceHTML(hanzi) {
     <p class="s-pl">${esc(st.pl)}</p>
     ${hasUnknown ? '<p class="s-note">Przyciemnione znaki jeszcze nie są znane.</p>' : ''}
   </div>`;
+}
+
+// ——— Wybór motywu (arkusz od dołu) ———
+export function themeSheetView(current) {
+  const cards = THEMES.map((t) => `<button class="theme-card" type="button" data-act="set-theme" data-id="${t.id}" aria-pressed="${t.id === current}">
+      <span class="theme-sw" aria-hidden="true">${t.sw.map((c, i) => `<i style="background:${c}${i === 0 ? ';box-shadow:inset 0 0 0 1px rgba(128,128,128,.45)' : ''}"></i>`).join('')}</span>
+      <b>${esc(t.name)}</b><small>${esc(t.note)}</small>
+    </button>`).join('');
+  return `<div class="sheet-backdrop" data-act="close-sheet"></div>
+    <section class="sheet" role="dialog" aria-modal="true" aria-label="Motyw kolorystyczny">
+      <div class="grab" aria-hidden="true"></div>
+      <h2>Motyw kolorystyczny</h2>
+      <p class="muted theme-note">Wybór dotyczy tylko tego urządzenia.</p>
+      <div class="theme-grid">${cards}</div>
+      <div class="btn-col"><button class="btn" type="button" data-act="close-sheet">Gotowe</button></div>
+    </section>`;
 }
 
 // ——— Karta znaku (arkusz od dołu) ———

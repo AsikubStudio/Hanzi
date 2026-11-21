@@ -4,7 +4,7 @@
 // custom:   [{ id, hanzi, pinyin, en, pl, note }] własne fiszki
 // srs:      { [key]: { box, due } }              powtórki (key = hanzi lub „c:<id>”)
 // activity: { 'YYYY-MM-DD': liczba ocenionych kart }
-// theme:    'auto' | 'light' | 'dark'
+// theme:    id motywu z js/themes.js ('las', 'poranek', 'bursztyn', 'granat', 'luxury', 'cynober') albo 'auto' (zgodnie z systemem)
 // log:      { 'YYYY-MM-DD': { r: powtórki, g: oceny do retencji, ok: poprawne, t: czas nauki w ms } }
 // showTr:   czy pokazywać tłumaczenie zdań przykładowych (ikona tłumacza w rogu zdania)
 

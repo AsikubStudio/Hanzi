@@ -5,10 +5,11 @@ import {
 import { grade, dueDeck, knownDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
 import { search } from './search.js';
 import { gradeAnswer } from './quiz.js';
+import { resolveTheme, themeMeta } from './themes.js';
 import { mountStrokes } from './strokes.js';
 import {
   tabbarHTML, homeView, knownView, cardsView, tierBodyHTML, resultsHTML, knownGridHTML, quizCount,
-  sheetView, formView, dayDetail, setStatsOpen, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
+  sheetView, formView, themeSheetView, dayDetail, setStatsOpen, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
 } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -75,19 +76,21 @@ qInput.addEventListener('input', refreshSearch);
 qClear.addEventListener('click', () => { clearSearch(); qInput.focus(); });
 
 // ——— Motyw ———
+// Motywy to zestawy zmiennych CSS (css/themes.css); wybór jest zapisany w state.theme na tym urządzeniu.
 function applyTheme() {
-  const root = document.documentElement;
-  if (state.theme === 'auto') root.removeAttribute('data-theme');
-  else root.setAttribute('data-theme', state.theme);
-  const dark = state.theme === 'dark' || (state.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  $('meta[name="theme-color"]').setAttribute('content', dark ? '#0c1713' : '#123026');
+  const id = resolveTheme(state.theme);
+  document.documentElement.setAttribute('data-theme', id);
+  $('meta[name="theme-color"]').setAttribute('content', themeMeta(id));
 }
 
-function cycleTheme() {
-  const order = ['auto', 'light', 'dark'];
-  setTheme(order[(order.indexOf(state.theme) + 1) % order.length]);
+function openThemes() {
+  openSheet(themeSheetView(resolveTheme(state.theme)));
+}
+
+function pickTheme(el) {
+  setTheme(el.dataset.id);
   applyTheme();
-  toast({ auto: 'Motyw: zgodny z systemem', light: 'Motyw: jasny', dark: 'Motyw: ciemny' }[state.theme]);
+  sheetEl.querySelectorAll('.theme-card').forEach((b) => b.setAttribute('aria-pressed', String(b === el)));
 }
 
 // ——— Toast ———
@@ -325,7 +328,8 @@ const afterToggle = (h, msg) => {
 const ACTIONS = {
   open: (el) => openChar(el.dataset.h),
   'close-sheet': closeSheet,
-  theme: cycleTheme,
+  theme: openThemes,
+  'set-theme': pickTheme,
   'cal-day': (el) => {
     document.querySelectorAll('.cal-c.sel').forEach((n) => n.classList.remove('sel'));
     el.classList.add('sel');
