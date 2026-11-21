@@ -564,7 +564,6 @@ export function peerCardHTML() {
   const other = PROFILE_IDS.find((id) => id !== me);
   if (!me || !other) return '';
   const o = peerState(other);
-  if (!Object.keys(o.known || {}).length && !Object.keys(o.activity || {}).length) return '';
   const p = profileInfo(other);
   const k = knownCountOf(other);
   const r = rankInfo(k);
@@ -583,8 +582,6 @@ export function weekCardHTML() {
   const me = currentId();
   const other = PROFILE_IDS.find((id) => id !== me);
   if (!me || !other) return '';
-  const o = peerState(other);
-  if (!Object.keys(o.known || {}).length && !Object.keys(o.activity || {}).length) return ''; // druga osoba jeszcze nie zaczęła
   return `<section class="week" aria-label="Ostatnie 7 dni"><h3>Ostatnie 7 dni</h3>${weekRow(me)}${weekRow(other)}</section>`;
 }
 
