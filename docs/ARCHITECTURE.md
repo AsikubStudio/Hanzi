@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.16)
+# BotHanzi: architektura (v0.17)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -92,7 +92,7 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 - **Awatary przy znaku**: `whoHas(hanzi)` zwraca profile, które mają znak w „Znanych” lub „Trudnych”; `whoHTML` rysuje małe awatary, a znak „trudny” dostaje czerwoną obwódkę. Widać je w arkuszu znaku (obok etykiety HSK) oraz na fiszce (góra karty, przód i tył). Dane drugiej osoby pochodzą z lokalnej kopii (ten sam telefon albo ostatnia synchronizacja).
 - **Synchronizacja** (`js/sync.js`, `js/config.js`, instrukcja `docs/FIREBASE.md`): Firestore przez REST (bez SDK), dokument `rooms/<kod>/profiles/<id>` = `{ data: JSON {name, avatar, state}, ts }`. Kod parowania: 12 znaków z alfabetu bez 0/O/1/I, działa jak hasło (reguły nie pozwalają wylistować kodów). Każdy profil ma `ts` (ostatnia zmiana lokalna) i `base` (wersja, o której wiemy, że jest w chmurze). Reguła: chmura bez zmian → wyślij nasze; chmura zmieniona i brak zmian lokalnych → weź chmurę; zmiany po obu stronach → `mergeState` (znane, trudne i własne fiszki: suma; SRS: dalsze pudełko; aktywność i log: większa wartość dnia; pola pojedyncze, nazwa i zdjęcie: wersja nowsza) i wysłanie wyniku. Ponieważ każdy profil ma zwykle jednego właściciela, zwykle wystarcza prosta wymiana wersji; scalanie chroni przed utratą danych, gdy ten sam profil użyto na dwóch telefonach. Ograniczenie: usunięcie znaku ze „Znanych” w trakcie scalania może zostać cofnięte (suma zbiorów).
 - **Kiedy synchronizuje**: po starcie, przy zmianie widoczności karty (wejście i wyjście), ok. 3,5 s po zmianie lokalnej, po powrocie internetu i co 90 s przy otwartej aplikacji. Błąd sieci nie przerywa pracy (status w arkuszu „Synchronizacja”). `localStorage['bothanzi:fbcfg']` pozwala nadpisać konfigurację (testy).
-- Service worker: `bothanzi-v17` (w app shellu `js/sync.js`, `js/config.js`, `js/avatar.js`; zapytania do googleapis.com SW pomija).
+- Service worker: `bothanzi-v18` (w app shellu `js/sync.js`, `js/config.js`, `js/avatar.js`; zapytania do googleapis.com SW pomija).
 - Testy: `/tmp/test/run16.py` (dwa „telefony” na atrapie Firestore: migracja, zdjęcie, kod parowania, awatary, scalanie), `run17.py` (offline, 360 px, brak konfiguracji).
 
 ## Zmiany w v0.15 (przełącznik trybu)

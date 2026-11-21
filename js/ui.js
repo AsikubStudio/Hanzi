@@ -522,7 +522,7 @@ export function profilePickerView() {
   }).join('');
   return `<div class="picker-in">
       <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><g id="ant2"><path d="M27 33C22 27 20 21 18 11"/><path d="M23 25L12 21"/><path d="M20 17L20 8"/><path d="M25 29L16 30"/></g><use href="#ant2" transform="translate(64 0) scale(-1 1)"/></g><path d="M25 35Q32 30 39 35L32 56Z" fill="currentColor" opacity=".55"/></svg>
-      <h1>Kto się dziś uczy?</h1>
+      <h1 class="sr-only">Wybierz profil</h1>
       ${legacy}
       <ul class="picks">${items}</ul>
       <button class="link-btn" type="button" data-act="open-sync">${ICONS.link} Połącz z drugim telefonem</button>

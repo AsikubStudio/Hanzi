@@ -153,6 +153,45 @@ function closeSheet() {
   lastFocus?.focus?.({ preventScroll: true });
 }
 
+// Przesunięcie arkusza palcem w dół zamyka go (tylko układ mobilny; na dużym ekranie arkusz jest wyśrodkowany).
+{
+  let g = null;
+  sheetEl.addEventListener('touchstart', (e) => {
+    const box = e.target.closest('.sheet');
+    if (!box || e.touches.length !== 1 || matchMedia('(min-width: 900px)').matches) { g = null; return; }
+    g = { box, y: e.touches[0].clientY, x: e.touches[0].clientX, t: Date.now(), on: false, top: box.scrollTop <= 0 };
+  }, { passive: true });
+  sheetEl.addEventListener('touchmove', (e) => {
+    if (!g) return;
+    const dy = e.touches[0].clientY - g.y;
+    const dx = e.touches[0].clientX - g.x;
+    if (!g.on) {
+      if (!g.top || dy < 8 || Math.abs(dy) < Math.abs(dx) || g.box.scrollTop > 0) return;
+      g.on = true;
+      g.box.style.transition = 'none';
+    }
+    e.preventDefault();
+    const d = Math.max(0, dy);
+    g.box.style.transform = `translateY(${d}px)`;
+    const bd = sheetEl.querySelector('.sheet-backdrop');
+    if (bd) bd.style.opacity = String(Math.max(0, 1 - d / 420));
+  }, { passive: false });
+  const end = (e) => {
+    if (!g?.on) { g = null; return; }
+    const { box } = g;
+    const dy = (e.changedTouches?.[0]?.clientY ?? g.y) - g.y;
+    const fast = dy / Math.max(1, Date.now() - g.t) > 0.6;
+    g = null;
+    box.style.transition = '';
+    box.style.transform = '';
+    const bd = sheetEl.querySelector('.sheet-backdrop');
+    if (bd) bd.style.opacity = '';
+    if (dy > 110 || (fast && dy > 40)) closeSheet();
+  };
+  sheetEl.addEventListener('touchend', end);
+  sheetEl.addEventListener('touchcancel', end);
+}
+
 function openChar(h) {
   const c = BY_HANZI.get(h);
   if (!c) return;
