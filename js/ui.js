@@ -1,6 +1,6 @@
 // Widoki jako funkcje zwracające HTML. Zdarzenia obsługuje app.js (delegacja po data-act).
 import { CHARS, LEVELS, BY_HANZI } from './data.js';
-import { state, isKnown, isHard, streak, dayStamp, dayStats, overallStats, profileInfo, profileList, whoHas, knownCountOf, hasLegacy, legacyCount, currentId, streakOf, activeTodayOf, peerState, PROFILE_IDS, getRemember } from './store.js';
+import { state, isKnown, isHard, streak, dayStamp, dayStats, overallStats, profileInfo, profileList, whoHas, knownCountOf, hasLegacy, legacyCount, currentId, streakOf, activeTodayOf, peerState, PROFILE_IDS } from './store.js';
 import { canSpeak } from './speak.js';
 import { syncConfigured, prettyCode } from './sync.js';
 import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
@@ -354,11 +354,12 @@ export function homeView(ui) {
       </div>
     </section>
     ${ctas ? `<div class="cta-row">${ctas}</div>` : ''}
+    ${peerCardHTML()}
+    ${weekCardHTML()}
     <section class="stats" aria-label="Statystyki">
       <div class="stat"><b>${known}</b><span>znane</span></div>
       <div class="stat"><b>${due}</b><span>do powtórki</span></div>
     </section>
-    ${weekCardHTML()}
     ${streakTile(st, Boolean(state.activity[dayStamp()]))}
     <section>
       <h2>Poziomy HSK</h2>
@@ -521,6 +522,7 @@ export function sentenceHTML(hanzi) {
   }).join('');
   const on = state.showTr;
   return `<div class="sentence${on ? ' show-tr' : ''}">
+    ${speakBtn(st.zh)}
     <button class="tr-btn" type="button" data-act="toggle-tr" aria-pressed="${on}" aria-label="Pokaż tłumaczenie zdania" title="Tłumaczenie">${ICONS.translate}</button>
     <p class="s-zh" lang="zh">${zh}</p>
     <p class="s-py">${esc(st.py)}</p>
@@ -556,6 +558,27 @@ function weekRow(id) {
     <div class="mlamps">${lamps}</div><div class="mn"><b>${n}</b><small>${dayWord(n)}</small></div></div>`;
 }
 
+// Karta drugiej osoby: ranga, liczba znaków, pasek do kolejnej rangi i seria.
+export function peerCardHTML() {
+  const me = currentId();
+  const other = PROFILE_IDS.find((id) => id !== me);
+  if (!me || !other) return '';
+  const o = peerState(other);
+  if (!Object.keys(o.known || {}).length && !Object.keys(o.activity || {}).length) return '';
+  const p = profileInfo(other);
+  const k = knownCountOf(other);
+  const r = rankInfo(k);
+  const n = streakOf(other);
+  const today = (o.activity || {})[dayStamp()] || 0;
+  const todayTxt = today ? `dziś: ${today} ${plural(today, 'karta', 'karty', 'kart')}` : 'dziś jeszcze nie';
+  return `<section class="peer" aria-label="Postęp: ${esc(p.name)}">
+    ${avatarHTML(other, 'md')}
+    <div class="peer-main"><b>${esc(p.name)}</b><small>${r.name} · ${k} ${plural(k, 'znak', 'znaki', 'znaków')} · ${todayTxt}</small>
+      <div class="bar" role="progressbar" aria-label="Postęp ${esc(p.name)} do kolejnej rangi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(r.pct)}"><i style="width:${r.pct}%"></i></div></div>
+    <div class="peer-streak" role="img" aria-label="Seria: ${n} ${dayWord(n)}">${lampSVG('peer', n, today)}<b>${n}</b><small>${dayWord(n)}</small></div>
+  </section>`;
+}
+
 export function weekCardHTML() {
   const me = currentId();
   const other = PROFILE_IDS.find((id) => id !== me);
@@ -584,12 +607,15 @@ export function whoHTML(hanzi, cls = '') {
 }
 
 // Mały lampion serii pod profilem: zapalony, gdy seria trwa (z poświatą, jeśli dziś już była nauka), zgaszony bez serii.
+function lampSVG(id, n, today) {
+  return `<svg class="pick-lamp" viewBox="-14 -6 28 50" aria-hidden="true"><defs><radialGradient id="pl-${id}"><stop class="s-glow" offset="0" stop-opacity=".7"/><stop class="s-glow" offset="1" stop-opacity="0"/></radialGradient></defs>${n && today ? `<circle class="lamp-halo" cx="0" cy="21" r="24" fill="url(#pl-${id})"/>` : ''}${lampion(0, 0, 1, n > 0, 0).replace(/<circle class="lamp-halo"[^>]*>/, '')}</svg>`;
+}
+
 function pickStreakHTML(id) {
   const n = streakOf(id);
   const today = activeTodayOf(id);
-  const lamp = `<svg class="pick-lamp" viewBox="-14 -6 28 50" aria-hidden="true"><defs><radialGradient id="pl-${id}"><stop class="s-glow" offset="0" stop-opacity=".7"/><stop class="s-glow" offset="1" stop-opacity="0"/></radialGradient></defs>${n && today ? `<circle class="lamp-halo" cx="0" cy="21" r="24" fill="url(#pl-${id})"/>` : ''}${lampion(0, 0, 1, n > 0, 0).replace(/<circle class="lamp-halo"[^>]*>/, '')}</svg>`;
   const label = n ? `Seria: ${n} ${dayWord(n)}${today ? ', dziś już była nauka' : ', dziś jeszcze nie było nauki'}` : 'Brak serii';
-  return `<span class="pick-streak${n ? ' on' : ''}" role="img" aria-label="${label}" title="${label}">${lamp}<b>${n}</b><span>${n ? dayWord(n) : 'bez serii'}</span></span>`;
+  return `<span class="pick-streak${n ? ' on' : ''}" role="img" aria-label="${label}" title="${label}">${lampSVG(id, n, today)}<b>${n}</b><span>${n ? dayWord(n) : 'bez serii'}</span></span>`;
 }
 
 export function profilePickerView() {
@@ -628,7 +654,6 @@ export function profileSheetView(id, { picker = false } = {}) {
       </div>
       <input type="file" id="av-file" accept="image/*" hidden>
       <label>Nazwa<input name="name" value="${esc(p.name)}" maxlength="16" required autocomplete="off"></label>
-      ${picker ? '' : `<label class="sheet-check"><input type="checkbox" id="remember" ${getRemember() ? 'checked' : ''}><span>Zapamiętaj profil na tym telefonie<small>Aplikacja od razu otworzy się na tym profilu. Zmienisz go tutaj w każdej chwili.</small></span></label>`}
       <div class="btn-col">
         <button class="btn primary" type="submit">Zapisz</button>
         ${picker ? '' : '<button class="btn" type="button" data-act="switch-profile">Zmień profil</button><button class="btn" type="button" data-act="open-sync">Synchronizacja</button>'}
@@ -710,18 +735,37 @@ export function sheetView(c) {
     </section>`;
 }
 
+// Wyniki wyszukiwania w oknie „Własna fiszka”: dotknięcie dodaje znak do trudnych (albo go stamtąd usuwa).
+export function cardResultsHTML(q) {
+  if (!q.trim()) return '<p class="muted">Wpisz znak, pinyin bez tonów albo znaczenie (po polsku lub angielsku).</p>';
+  const list = search(q).slice(0, 8);
+  if (!list.length) return '<p class="muted">Nie ma takiego znaku w bazie. Wpisz go ręcznie poniżej.</p>';
+  return `<ul class="rows">${list.map((c) => {
+    const hard = isHard(c.hanzi);
+    return `<li class="row"><button class="row-main cf-row${hard ? ' is-hard' : ''}" type="button" data-act="cf-toggle" data-h="${esc(c.hanzi)}" aria-pressed="${hard}">
+      <span class="hz-sm">${esc(c.hanzi)}</span>
+      <span><b>${esc(c.pinyin)}</b><small>${esc(c.pl)} · ${esc(c.en)}</small></span>
+      <span class="cf-state">${hard ? 'trudny ✓' : 'dodaj'}</span></button></li>`;
+  }).join('')}</ul>`;
+}
+
 export function formView() {
   return `<div class="sheet-backdrop" data-act="close-sheet"></div>
-    <form class="sheet" id="card-form" role="dialog" aria-modal="true" aria-label="Nowa fiszka">
+    <form class="sheet" id="card-form" role="dialog" aria-modal="true" aria-label="Własna fiszka">
       <div class="grab" aria-hidden="true"></div>
-      <h2>Własna fiszka</h2>
-      <label>Znak lub słowo<input name="hanzi" required maxlength="12" lang="zh" autocomplete="off"></label>
-      <label>Pinyin<input name="pinyin" maxlength="40" autocomplete="off" autocapitalize="off"></label>
-      <label>Znaczenie po polsku<input name="pl" maxlength="80" autocomplete="off"></label>
-      <label>Znaczenie po angielsku<input name="en" maxlength="80" autocomplete="off"></label>
-      <label>Notatka<input name="note" maxlength="120" autocomplete="off"></label>
-      <div class="btn-col"><button class="btn primary" type="submit">Zapisz fiszkę</button>
-        <button class="btn" type="button" data-act="close-sheet">Anuluj</button></div>
+      <h2>Dodaj do trudnych</h2>
+      <label>Szukaj znaku<input id="cf-q" type="search" inputmode="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="np. 好, hao albo dobry"></label>
+      <div id="cf-results" class="cf-results" aria-live="polite">${cardResultsHTML('')}</div>
+      <details class="cf-manual">
+        <summary>Nie ma w bazie? Wpisz ręcznie</summary>
+        <label>Znak lub słowo<input name="hanzi" maxlength="12" lang="zh" autocomplete="off"></label>
+        <label>Pinyin<input name="pinyin" maxlength="40" autocomplete="off" autocapitalize="off"></label>
+        <label>Znaczenie po polsku<input name="pl" maxlength="80" autocomplete="off"></label>
+        <label>Znaczenie po angielsku<input name="en" maxlength="80" autocomplete="off"></label>
+        <label>Notatka<input name="note" maxlength="120" autocomplete="off"></label>
+        <div class="btn-col"><button class="btn primary" type="submit">Zapisz fiszkę</button></div>
+      </details>
+      <div class="btn-col"><button class="btn" type="button" data-act="close-sheet">Gotowe</button></div>
     </form>`;
 }
 

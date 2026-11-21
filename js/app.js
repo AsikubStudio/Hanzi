@@ -1,7 +1,7 @@
 import { BY_HANZI } from './data.js';
 import {
   state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logReview, logTime, setTheme, setThemeMode, setShowTr, setLearnPref,
-  currentId, selectProfile, leaveProfile, profileInfo, setProfileName, setProfileAvatar, hasLegacy, adoptLegacy, dropLegacy, onChange, getSyncCode, setRemember,
+  currentId, selectProfile, leaveProfile, profileInfo, setProfileName, setProfileAvatar, hasLegacy, adoptLegacy, dropLegacy, onChange, getSyncCode,
 } from './store.js';
 import { initSync, syncNow, connect, disconnect, newCode, normalizeCode, validCode, prettyCode, getStatus, onStatus } from './sync.js';
 import { fileToAvatar } from './avatar.js';
@@ -12,7 +12,7 @@ import { gradeAnswer } from './quiz.js';
 import { normalizeTheme, themeAttr, themeMeta, effectiveMode } from './themes.js';
 import { mountStrokes } from './strokes.js';
 import {
-  tabbarHTML, homeView, knownView, hardView, tierBodyHTML, resultsHTML, knownGridHTML, hardGridHTML, quizCount, learnSheetView, learnCount, learnTodo,
+  tabbarHTML, homeView, knownView, hardView, cardResultsHTML, tierBodyHTML, resultsHTML, knownGridHTML, hardGridHTML, quizCount, learnSheetView, learnCount, learnTodo,
   sheetView, formView, themeSheetView, avatarHTML, profilePickerView, profileSheetView, syncSheetView, dayDetail, setStatsOpen, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
 } from './ui.js';
 
@@ -577,6 +577,13 @@ const ACTIONS = {
     startSession(learnDeck(lv, n), 'Wszystkie znaki z tego poziomu już znasz.', 'learn');
   },
   'new-card': () => openSheet(formView()),
+  'cf-toggle': (el) => {
+    const h = el.dataset.h;
+    toggleHard(h);
+    $('#cf-results').innerHTML = cardResultsHTML($('#cf-q').value);
+    toast(isHard(h) ? `${h} dodano do trudnych` : `${h} usunięto z trudnych`);
+    render({ keepScroll: true });
+  },
   'del-custom': (el) => { removeCustom(el.dataset.id); toast('Usunięto fiszkę'); render({ keepScroll: true }); },
   answer: (el) => answer(el.dataset.dir),
   'end-session': endSession,
@@ -619,8 +626,8 @@ document.addEventListener('submit', (e) => {
   if (e.target.id !== 'card-form') return;
   e.preventDefault();
   const f = Object.fromEntries(new FormData(e.target));
-  const hanzi = f.hanzi.trim();
-  if (!hanzi) return;
+  const hanzi = (f.hanzi || '').trim();
+  if (!hanzi) return toast('Wpisz znak albo wybierz go z wyników wyszukiwania.');
   addCustom({ hanzi, pinyin: f.pinyin.trim(), pl: f.pl.trim(), en: f.en.trim(), note: f.note.trim() });
   closeSheet();
   toast('Zapisano fiszkę');
@@ -628,7 +635,6 @@ document.addEventListener('submit', (e) => {
 });
 
 document.addEventListener('change', async (e) => {
-  if (e.target.id === 'remember') { setRemember(e.target.checked); toast(e.target.checked ? 'Profil zostanie zapamiętany' : 'Ekran wyboru będzie pokazywany przy starcie'); return; }
   if (e.target.id !== 'av-file' || !e.target.files?.[0]) return;
   const id = sheetEl.querySelector('#profile-form')?.dataset.id;
   if (!id) return;
@@ -645,6 +651,8 @@ document.addEventListener('input', (e) => {
   if (id === 'kq') {
     ui.knownQuery = e.target.value;
     $('#known-grid').innerHTML = knownGridHTML(ui);
+  } else if (id === 'cf-q') {
+    $('#cf-results').innerHTML = cardResultsHTML(e.target.value);
   } else if (id === 'hq') {
     ui.hardQuery = e.target.value;
     $('#hard-grid').innerHTML = hardGridHTML(ui);

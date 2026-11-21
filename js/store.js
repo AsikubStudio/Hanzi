@@ -22,9 +22,7 @@ const KEY = 'bothanzi:v2';
 const LEGACY_KEY = 'bothanzi:v1';
 const UI_KEY = 'bothanzi:ui';
 const ME_KEY = 'bothanzi:me';
-const REMEMBER_KEY = 'bothanzi:remember'; // ustawienie tego urządzenia: wchodź od razu na ostatnio używany profil
 const LAST_KEY = 'bothanzi:last';
-const PICKER_KEY = 'bothanzi:picker'; // sessionStorage: ekran wyboru otwarto świadomie (zmiana profilu)
 
 export const PROFILE_IDS = ['asia', 'kuba'];
 const NAMES = { asia: 'Asia', kuba: 'Kuba' };
@@ -91,24 +89,16 @@ export function selectProfile(id) {
   me = id;
   replaceState(db.profiles[id].state);
   db.profiles[id].state = state;
-  try { sessionStorage.setItem(ME_KEY, id); sessionStorage.removeItem(PICKER_KEY); localStorage.setItem(LAST_KEY, id); } catch { /* ignoruj */ }
+  try { sessionStorage.setItem(ME_KEY, id); localStorage.setItem(LAST_KEY, id); } catch { /* ignoruj */ }
   persist();
   return true;
-}
-
-export function getRemember() { try { return localStorage.getItem(REMEMBER_KEY) === '1'; } catch { return false; } }
-export function setRemember(on) {
-  try {
-    if (on) { localStorage.setItem(REMEMBER_KEY, '1'); if (me) localStorage.setItem(LAST_KEY, me); }
-    else localStorage.removeItem(REMEMBER_KEY);
-  } catch { /* ignoruj */ }
 }
 
 export function leaveProfile() {
   if (!me) return;
   db.profiles[me].state = clone(state);
   me = null;
-  try { sessionStorage.removeItem(ME_KEY); sessionStorage.setItem(PICKER_KEY, '1'); } catch { /* ignoruj */ }
+  try { sessionStorage.removeItem(ME_KEY); } catch { /* ignoruj */ }
   persist();
 }
 
@@ -213,11 +203,11 @@ export function setSyncCode(code) {
   persist();
 }
 
-{ // powrót do profilu z tej sesji (odświeżenie strony) albo, przy włączonym zapamiętywaniu, do ostatniego profilu
+{ // powrót do profilu z tej sesji (odświeżenie strony); świeże uruchomienie zawsze pokazuje wybór profilu
   let saved = null;
   try {
     saved = sessionStorage.getItem(ME_KEY);
-    if (!saved && getRemember() && !sessionStorage.getItem(PICKER_KEY)) saved = localStorage.getItem(LAST_KEY);
+    localStorage.removeItem('bothanzi:remember'); // pozostałość po usuniętej opcji „Zapamiętaj profil”
   } catch { /* ignoruj */ }
   if (PROFILE_IDS.includes(saved)) selectProfile(saved);
 }

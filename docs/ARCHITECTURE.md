@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.20)
+# BotHanzi: architektura (v0.21)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -84,6 +84,13 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 - Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
 - `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
 
+## Zmiany w v0.21
+- **Własna fiszka przez wyszukiwanie**: okno „Dodaj do trudnych” (`formView`) ma pole wyszukiwania w całej bazie (hanzi, pinyin bez tonów, znaczenie PL/EN; `cardResultsHTML`, akcja `cf-toggle`, pole `#cf-q`). Dotknięcie wyniku dodaje znak do trudnych (albo go stamtąd usuwa), okno zostaje otwarte, więc można dodać kilka znaków. Dla słów spoza bazy zostaje rozwijane „Nie ma w bazie? Wpisz ręcznie” (dawny formularz z pinyin, znaczeniami i notatką → `state.custom`).
+- **Wymowa**: przycisk głośnika jest mniejszy (30 px, ikona 16 px) i pojawia się też przy zdaniach przykładowych (lewy górny róg pola zdania, czyta całe zdanie tempem 0,8) w karcie znaku i na odwrocie fiszki.
+- **Usunięto „Zapamiętaj profil”** (checkbox, `getRemember/setRemember`, klucz `bothanzi:remember`, `PICKER_KEY`). Świeże uruchomienie zawsze pokazuje wybór profilu; odświeżenie w trakcie sesji zostaje na profilu (`sessionStorage`). Stary klucz jest czyszczony przy starcie.
+- **Karta drugiej osoby** (`peerCardHTML`, Start, pod przyciskami „Powtórka” / „Ucz się nowych”): awatar, nazwa, ranga, liczba znaków, „dziś: N kart” lub „dziś jeszcze nie”, pasek do kolejnej rangi i pionowa pigułka serii z lampionem (`lampSVG`, wspólny z ekranem wyboru profilu). Pod nią karta „Ostatnie 7 dni”; obie ukryte, dopóki druga osoba nie ma znanych znaków ani aktywności. Kolejność Startu: hero, przyciski, karta drugiej osoby, ostatnie 7 dni, statystyki, seria, poziomy HSK.
+- Service worker: `bothanzi-v23`.
+
 ## Zmiany w v0.20
 - Zakładka „Fiszki” zastąpiona zakładką „Trudne” (`#/hard`; stary adres `#/cards` jest aliasem). Widok `hardView` działa jak „Znane”: nagłówek z licznikiem i lupką (`hard-search`, pole `#hq` filtruje tylko trudne), chipy poziomów HSK (tylko te, w których są trudne znaki), siatka `#hard-grid`. Panel „Ćwicz trudne (N)” (`study-hard`) ćwiczy trudne znaki oraz własne fiszki. Poniżej sekcja „Własne fiszki” (lista, usuwanie `del-custom`, przycisk `new-card`).
 - Usunięto „Powtórkę ze znanych” (`study-known`, `deck-level`, `deck-size`); w Znanych zostaje „Odpytaj się”. „Powtórka na dziś” zostaje na Starcie.
@@ -94,7 +101,7 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 ## Zmiany w v0.19 (wymowa, tydzień we dwoje, zapamiętany profil)
 - **Wymowa** (`js/speak.js`): przycisk głośnika obok pinyin w karcie znaku, na odwrocie fiszki i na ekranie wyniku quizu (w pytaniu quizu go nie ma, bo zdradzałby odpowiedź). Web Speech API (`speechSynthesis`, głos `zh-CN`, tempo 0,8), bez plików audio. Gdy lista głosów jest załadowana i nie ma żadnego chińskiego, pokazuje się komunikat zamiast czytania błędnym głosem; bez obsługi API przycisk w ogóle się nie rysuje. Czyta się znak, nie pinyin, więc znaki wieloodczytaniowe (了, 行) czytane są domyślnym odczytaniem głosu. Niewidoczny przycisk na zakrytej fiszce nie łapie dotknięcia (`pointer-events: none` do odkrycia karty).
 - **Ostatnie 7 dni** (`weekCardHTML` w `ui.js`, na stronie głównej między statystykami a kafelkiem serii): dwa rzędy (Ty i druga osoba): awatar, nazwa, „dziś: N kart”, siedem lampionów (zapalony = dzień z nauką, litera dnia tygodnia, dziś pogrubione) i seria. Ukryta, dopóki druga osoba nie ma żadnych znanych znaków ani aktywności. Dane drugiej osoby z lokalnej kopii (synchronizacja).
-- **Zapamiętanie profilu** (ustawienie tego urządzenia, domyślnie wyłączone): pole w oknie profilu. Gdy włączone, świeże uruchomienie wchodzi od razu na ostatni profil (`localStorage` `bothanzi:remember` i `bothanzi:last`); „Zmień profil” świadomie pokazuje ekran wyboru nawet po odświeżeniu (`sessionStorage` `bothanzi:picker`).
+- (Usunięte w v0.21.) **Zapamiętanie profilu** (ustawienie tego urządzenia, domyślnie wyłączone): pole w oknie profilu. Gdy włączone, świeże uruchomienie wchodzi od razu na ostatni profil (`localStorage` `bothanzi:remember` i `bothanzi:last`); „Zmień profil” świadomie pokazuje ekran wyboru nawet po odświeżeniu (`sessionStorage` `bothanzi:picker`).
 - **Kontrola danych**: `node tools/check-data.mjs` sprawdza unikalność znaków, poziomy HSK, pinyin i znaczenia, plik kresek, wpis w `strokes/index.json` i co najmniej jedno zdanie na znak; kod wyjścia 1 przy błędach. Uruchamiaj przed każdym wydaniem i po imporcie nowego poziomu.
 - **Kreski**: service worker wgrywa z góry tylko pierwsze 600 z `strokes/index.json` (stała `STROKES_PRECACHE`), resztę zapamiętuje przy pierwszym otwarciu znaku; nieotwarty znak bez internetu pokazuje samo pismo drukowane.
 - Service worker: `bothanzi-v21` (w app shellu `js/speak.js`).
@@ -132,9 +139,9 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.
 
 ## Następne kroki
-0. **Zrobione w v0.16: profile Asia i Kuba** (kod gotowy). Do włączenia synchronizacji trzeba założyć projekt Firebase wg `docs/FIREBASE.md` i wpisać klucze w `js/config.js`. Do rozważenia: ekran wyboru tylko przy pierwszym uruchomieniu na telefonie (pamiętanie profilu), powiadomienie „Asia powtórzyła dziś N kart”.
+0. **Zrobione w v0.16: profile Asia i Kuba** (kod gotowy). Do włączenia synchronizacji trzeba założyć projekt Firebase wg `docs/FIREBASE.md` i wpisać klucze w `js/config.js`. Do rozważenia: powiadomienie „Asia powtórzyła dziś N kart”.
 0b. **Zrobione w v0.14–v0.16: motywy kolorystyczne** (motyw i tryb są w danych profilu). Dziś są dwa tryby (jasny i ciemny) oparte na zmiennych CSS (`--bg`, `--surface`, `--pink`, `--gold` itd.), więc motywy to zestawy tych zmiennych wybierane atrybutem `data-theme`. Do ustalenia: ile motywów i jakie (np. obecny zielono-różowy, nocny granat, ciepły bursztyn), czy motyw jest per profil, czy per urządzenie, oraz czy zmieniają się też hero (góry, słońce) i kafel serii. Wybór zapisany w stanie (`theme`) i w `theme-color` meta.
-1. HSK 2 (161 brakujących znaków), potem poziomy 3–6; przejrzenie polskich znaczeń HSK 1. Zrobione w v0.19: pamiętanie profilu, kontrola danych, kreski przy pierwszym użyciu, wymowa, karta „Ostatnie 7 dni”. Zostaje: eksport/import postępu (JSON; projekt: plik z profilem, import scala lub zastępuje po podsumowaniu), przegląd polskich znaczeń HSK 1 (plik CSV do przeglądu).
+1. HSK 2 (161 brakujących znaków), potem poziomy 3–6; przejrzenie polskich znaczeń HSK 1. Zrobione w v0.19: kontrola danych, kreski przy pierwszym użyciu, wymowa, karta „Ostatnie 7 dni”. Zostaje: eksport/import postępu (JSON; projekt: plik z profilem, import scala lub zastępuje po podsumowaniu), przegląd polskich znaczeń HSK 1 (plik CSV do przeglądu).
 2. Audio; tryb ćwiczenia rysowania znaku palcem.
 3. Eksport/import postępu (JSON) i ewentualna synchronizacja.
 4. Weryfikacja iOS: instalacja z Safari, ikony, pasek stanu.
