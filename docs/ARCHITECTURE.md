@@ -1,14 +1,14 @@
-# BotHanzi: architektura (v0.14)
+# BotHanzi: architektura (v0.16)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
-- Dane po stronie klienta; postęp w localStorage (`bothanzi:v1`). Brak kont i synchronizacji w v0.1.
+- Dane po stronie klienta; postęp w localStorage (`bothanzi:v2`, osobno dla profili Asia i Kuba). Bez kont; opcjonalna synchronizacja między telefonami przez Firestore i kod parowania (v0.16).
 - Język interfejsu: polski. Znaczenia: polski + angielski.
 - Standard HSK 2.0, poziomy 1–6; poziom 7 oznacza „6+”.
 
 ## Model danych
 Znak: `{ hanzi, pinyin (z tonami), hsk (1–7), en, pl }`; znaczenia rozdzielone średnikiem.
-Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, `srs{key:{box,due}}`, `activity{date:n}`, `log{date:{r,g,ok,t}}`, `theme`, `showTr`.
+Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, `srs{key:{box,due}}`, `activity{date:n}`, `log{date:{r,g,ok,t}}`, `theme`, `showTr`.
 
 ## Zachowanie
 - Odblokowanie poziomu: poprzedni poziom opanowany w ≥ 50% (miękka blokada, podgląd zawsze możliwy).
@@ -84,6 +84,17 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
 - `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
 
+## Zmiany w v0.16 (profile Asia i Kuba, synchronizacja)
+- **Profile**: dwa stałe profile (`asia`, `kuba`), każdy z własnym stanem (znane, trudne, własne fiszki, SRS, seria, kalendarz, statystyki, motyw i tryb, `showTr`) oraz nazwą i zdjęciem. `localStorage['bothanzi:v2'] = { v:2, profiles:{ id:{ name, avatar, state, ts, base } }, sync:{ code }, legacy }`. `state` w `store.js` to roboczy obiekt aktywnego profilu (podmieniany w miejscu przy zmianie profilu), więc reszta kodu go nie zna inaczej niż wcześniej. `bothanzi:ui` = `{theme, themeMode}` aktywnego profilu dla skryptu w `<head>`.
+- **Start**: ekran wyboru profilu przy każdym uruchomieniu (dwa duże kółka, pod nimi liczba znanych znaków i „Edytuj”). Aktywny profil żyje w `sessionStorage`, więc odświeżenie strony w trakcie sesji nie wraca do wyboru. Zmiana profilu: ikona awatara w nagłówku → „Zmień profil”. Na ekranie wyboru obowiązuje motyw ostatnio używanego profilu.
+- **Migracja**: postęp z `bothanzi:v1` (sprzed profili) czeka w `db.legacy` i trafia do pierwszego wybranego profilu (baner „Nie przenoś” go odrzuca; stary klucz v1 zostaje nietknięty jako kopia).
+- **Zdjęcie**: wybór pliku → kadr do kwadratu (środek), 128×128, JPEG q0,82 jako data URL (ok. 2–9 KB), `js/avatar.js`. Nazwa do 16 znaków. Bez zdjęcia: inicjał na gradiencie (Asia: różowy, Kuba: złoty).
+- **Awatary przy znaku**: `whoHas(hanzi)` zwraca profile, które mają znak w „Znanych” lub „Trudnych”; `whoHTML` rysuje małe awatary, a znak „trudny” dostaje czerwoną obwódkę. Widać je w arkuszu znaku (obok etykiety HSK) oraz na fiszce (góra karty, przód i tył). Dane drugiej osoby pochodzą z lokalnej kopii (ten sam telefon albo ostatnia synchronizacja).
+- **Synchronizacja** (`js/sync.js`, `js/config.js`, instrukcja `docs/FIREBASE.md`): Firestore przez REST (bez SDK), dokument `rooms/<kod>/profiles/<id>` = `{ data: JSON {name, avatar, state}, ts }`. Kod parowania: 12 znaków z alfabetu bez 0/O/1/I, działa jak hasło (reguły nie pozwalają wylistować kodów). Każdy profil ma `ts` (ostatnia zmiana lokalna) i `base` (wersja, o której wiemy, że jest w chmurze). Reguła: chmura bez zmian → wyślij nasze; chmura zmieniona i brak zmian lokalnych → weź chmurę; zmiany po obu stronach → `mergeState` (znane, trudne i własne fiszki: suma; SRS: dalsze pudełko; aktywność i log: większa wartość dnia; pola pojedyncze, nazwa i zdjęcie: wersja nowsza) i wysłanie wyniku. Ponieważ każdy profil ma zwykle jednego właściciela, zwykle wystarcza prosta wymiana wersji; scalanie chroni przed utratą danych, gdy ten sam profil użyto na dwóch telefonach. Ograniczenie: usunięcie znaku ze „Znanych” w trakcie scalania może zostać cofnięte (suma zbiorów).
+- **Kiedy synchronizuje**: po starcie, przy zmianie widoczności karty (wejście i wyjście), ok. 3,5 s po zmianie lokalnej, po powrocie internetu i co 90 s przy otwartej aplikacji. Błąd sieci nie przerywa pracy (status w arkuszu „Synchronizacja”). `localStorage['bothanzi:fbcfg']` pozwala nadpisać konfigurację (testy).
+- Service worker: `bothanzi-v17` (w app shellu `js/sync.js`, `js/config.js`, `js/avatar.js`; zapytania do googleapis.com SW pomija).
+- Testy: `/tmp/test/run16.py` (dwa „telefony” na atrapie Firestore: migracja, zdjęcie, kod parowania, awatary, scalanie), `run17.py` (offline, 360 px, brak konfiguracji).
+
 ## Zmiany w v0.15 (przełącznik trybu)
 - Segmentowy wybór Auto/Ciemny/Jasny usunięty z arkusza motywów. W nagłówku, obok ikony palety, jest przycisk słońce/księżyc (`#mode-btn`, `data-act="mode"`): przełącza ciemny↔jasny względem trybu efektywnego (`effectiveMode`). Do pierwszego kliknięcia `themeMode` = auto (zgodnie z systemem); potem zapisany jawnie. Ikona i aria-label zależą od trybu (CSS po `data-theme$="-dark|-light"`, label w `applyTheme`). Arkusz jest modalny, więc przełącznik działa po jego zamknięciu.
 
@@ -99,8 +110,8 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.
 
 ## Następne kroki
-0. **Na jutro (zgłoszone 21.11): profile Asia i Kuba.** Ustalenia: (a) dwa osobne telefony, więc potrzebna synchronizacja w chmurze, żeby widzieć stan drugiej osoby; (b) ekran wyboru profilu przy każdym starcie (dwa duże kółka); (c) wszystko osobno dla profilu: znane, trudne, fiszki, SRS, seria, kalendarz, statystyki, własne fiszki; (d) nazwę można zmienić, a zdjęcie wybrać (okrągły awatar, zmniejszone do ok. 128 px i zapisane jako data URL); (e) awatary pokazujemy na karcie znaku (arkusz szczegółów) i na fiszkach (przód/tył): mały awatar osoby, która ma znak w „Znanych”, a czerwona obwódka, gdy znak jest u niej w „Trudnych”. Otwarte: wybór backendu (propozycja: Firebase Firestore lub Supabase, plan darmowy), kod parowania zamiast kont, scalanie zmian z dwóch urządzeń (last-write-wins per znak ze znacznikiem czasu).
-0b. **Zrobione w v0.14: motywy kolorystyczne** (zostało: przenieść wybór motywu i trybu do danych profilu). Dziś są dwa tryby (jasny i ciemny) oparte na zmiennych CSS (`--bg`, `--surface`, `--pink`, `--gold` itd.), więc motywy to zestawy tych zmiennych wybierane atrybutem `data-theme`. Do ustalenia: ile motywów i jakie (np. obecny zielono-różowy, nocny granat, ciepły bursztyn), czy motyw jest per profil, czy per urządzenie, oraz czy zmieniają się też hero (góry, słońce) i kafel serii. Wybór zapisany w stanie (`theme`) i w `theme-color` meta.
+0. **Zrobione w v0.16: profile Asia i Kuba** (kod gotowy). Do włączenia synchronizacji trzeba założyć projekt Firebase wg `docs/FIREBASE.md` i wpisać klucze w `js/config.js`. Do rozważenia: ekran wyboru tylko przy pierwszym uruchomieniu na telefonie (pamiętanie profilu), powiadomienie „Asia powtórzyła dziś N kart”.
+0b. **Zrobione w v0.14–v0.16: motywy kolorystyczne** (motyw i tryb są w danych profilu). Dziś są dwa tryby (jasny i ciemny) oparte na zmiennych CSS (`--bg`, `--surface`, `--pink`, `--gold` itd.), więc motywy to zestawy tych zmiennych wybierane atrybutem `data-theme`. Do ustalenia: ile motywów i jakie (np. obecny zielono-różowy, nocny granat, ciepły bursztyn), czy motyw jest per profil, czy per urządzenie, oraz czy zmieniają się też hero (góry, słońce) i kafel serii. Wybór zapisany w stanie (`theme`) i w `theme-color` meta.
 1. HSK 2 (161 brakujących znaków), potem poziomy 3–6; przejrzenie polskich znaczeń HSK 1.
 2. Audio; tryb ćwiczenia rysowania znaku palcem.
 3. Eksport/import postępu (JSON) i ewentualna synchronizacja.

@@ -1,7 +1,10 @@
 import { BY_HANZI } from './data.js';
 import {
   state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logReview, logTime, setTheme, setThemeMode, setShowTr,
+  currentId, selectProfile, leaveProfile, profileInfo, setProfileName, setProfileAvatar, hasLegacy, adoptLegacy, dropLegacy, onChange, getSyncCode,
 } from './store.js';
+import { initSync, syncNow, connect, disconnect, newCode, normalizeCode, validCode, prettyCode, getStatus, onStatus } from './sync.js';
+import { fileToAvatar } from './avatar.js';
 import { grade, dueDeck, knownDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
 import { search } from './search.js';
 import { gradeAnswer } from './quiz.js';
@@ -9,7 +12,7 @@ import { normalizeTheme, themeAttr, themeMeta, effectiveMode } from './themes.js
 import { mountStrokes } from './strokes.js';
 import {
   tabbarHTML, homeView, knownView, cardsView, tierBodyHTML, resultsHTML, knownGridHTML, quizCount,
-  sheetView, formView, themeSheetView, dayDetail, setStatsOpen, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
+  sheetView, formView, themeSheetView, avatarHTML, profilePickerView, profileSheetView, syncSheetView, dayDetail, setStatsOpen, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
 } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -21,6 +24,9 @@ const toastEl = $('#toast');
 const qInput = $('#q');
 const qClear = $('#q-clear');
 const panel = $('#searchpanel');
+const pickerEl = $('#picker');
+const appEl = $('#app');
+const meBtn = $('#me-btn');
 
 const ui = {
   tab: 'home',
@@ -79,16 +85,22 @@ qClear.addEventListener('click', () => { clearSearch(); qInput.focus(); });
 // Motyw = rodzina kolorów (state.theme, wybór w arkuszu z ikony palety) × tryb (state.themeMode: auto/ciemny/jasny;
 // przełącznik słońce/księżyc w nagłówku ustawia ciemny lub jasny, a do czasu pierwszego kliknięcia trwa Auto = zgodnie z systemem).
 // Zmienne CSS: css/themes.css.
-// Wybór jest zapisany na tym urządzeniu; starsze zapisy migrują się przy pierwszym uruchomieniu.
+// Wybór jest zapisany w profilu (osobno u Asi i Kuby); starsze zapisy migrują się przy pierwszym uruchomieniu.
+const lastUi = () => { try { return JSON.parse(localStorage.getItem('bothanzi:ui')) || {}; } catch { return {}; } };
+const themeSrc = () => (currentId() ? state : lastUi()); // na ekranie wyboru profilu: motyw ostatnio używanego profilu
+
 function applyTheme() {
-  const n = normalizeTheme(state.theme, state.themeMode);
-  if (state.theme !== n.theme) setTheme(n.theme);
-  if (state.themeMode !== n.mode) setThemeMode(n.mode);
+  const src = themeSrc();
+  const n = normalizeTheme(src.theme, src.themeMode);
+  if (currentId()) {
+    if (state.theme !== n.theme) setTheme(n.theme);
+    if (state.themeMode !== n.mode) setThemeMode(n.mode);
+  }
   document.documentElement.setAttribute('data-theme', themeAttr(n.theme, n.mode));
   $('meta[name="theme-color"]').setAttribute('content', themeMeta(n.theme, n.mode));
   $('#mode-btn').setAttribute('aria-label', effectiveMode(n.mode) === 'dark' ? 'Przełącz na jasny tryb' : 'Przełącz na ciemny tryb');
 }
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (state.themeMode === 'auto') applyTheme(); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (themeSrc().themeMode === 'auto' || !themeSrc().themeMode) applyTheme(); });
 
 function openThemes() {
   openSheet(themeSheetView(state.theme, state.themeMode));
@@ -153,6 +165,75 @@ function openChar(h) {
     });
   }
 }
+
+// ——— Profile (Asia, Kuba) ———
+function updateMe() {
+  const id = currentId();
+  meBtn.hidden = !id;
+  if (!id) return;
+  meBtn.innerHTML = avatarHTML(id, 'sm');
+  meBtn.setAttribute('aria-label', `Profil: ${profileInfo(id).name}`);
+}
+
+function showPicker() {
+  clearSearch();
+  pickerEl.innerHTML = profilePickerView();
+  pickerEl.hidden = false;
+  appEl.inert = true;
+  document.body.classList.add('in-picker');
+  applyTheme();
+  pickerEl.querySelector('.pick-main')?.focus({ preventScroll: true });
+}
+
+function refreshPicker() {
+  if (pickerEl.hidden) return;
+  const y = pickerEl.scrollTop;
+  pickerEl.innerHTML = profilePickerView();
+  pickerEl.scrollTop = y;
+}
+
+function enterProfile(id) {
+  if (hasLegacy()) adoptLegacy(id); // postęp sprzed profili trafia do pierwszego wybranego profilu
+  selectProfile(id);
+  pickerEl.hidden = true;
+  pickerEl.innerHTML = '';
+  appEl.inert = false;
+  document.body.classList.remove('in-picker');
+  Object.assign(ui, { tab: 'home', knownLevel: 0, knownQuery: '', knownSearchOpen: false, deckLevel: 0 });
+  ui.openTiers.clear();
+  location.hash = '#/home';
+  applyTheme();
+  updateMe();
+  render();
+  window.scrollTo(0, 0);
+  syncNow();
+}
+
+function refreshProfileSheet() {
+  const form = sheetEl.querySelector('#profile-form');
+  if (!form) return;
+  const name = form.elements.name.value;
+  sheetEl.innerHTML = profileSheetView(form.dataset.id, { picker: !form.querySelector('[data-act="switch-profile"]') });
+  sheetEl.querySelector('#profile-form').elements.name.value = name;
+}
+
+function refreshSyncSheet() {
+  const box = sheetEl.querySelector('.sheet');
+  if (!box?.classList.contains('sheet-sync')) return;
+  const scroll = box.scrollTop;
+  sheetEl.innerHTML = syncSheetView(getStatus(), getSyncCode());
+  sheetEl.querySelector('.sheet').scrollTop = scroll;
+}
+onStatus(refreshSyncSheet);
+
+onChange((kind) => {
+  updateMe();
+  refreshPicker();
+  if (kind === 'remote' && currentId()) {
+    applyTheme();
+    if (!S && !Q) render({ keepScroll: true });
+  }
+});
 
 // ——— Zegar nauki: liczy aktywny czas w sesjach i quizach ———
 // Pojedynczy odcinek (od pokazania karty do odpowiedzi) liczy się najwyżej CAP ms, żeby przerwa nie zawyżała czasu.
@@ -353,6 +434,27 @@ const ACTIONS = {
   theme: openThemes,
   'set-theme': pickTheme,
   mode: toggleMode,
+  me: () => openSheet(profileSheetView(currentId())),
+  'edit-profile': (el) => openSheet(profileSheetView(el.dataset.id, { picker: true })),
+  'pick-profile': (el) => enterProfile(el.dataset.id),
+  'drop-legacy': () => { dropLegacy(); refreshPicker(); },
+  'switch-profile': () => {
+    if (S || Q) return;
+    closeSheet();
+    syncNow();
+    leaveProfile();
+    showPicker();
+  },
+  'pick-photo': () => $('#av-file')?.click(),
+  'remove-photo': () => { setProfileAvatar(sheetEl.querySelector('#profile-form').dataset.id, null); refreshProfileSheet(); },
+  'open-sync': () => openSheet(syncSheetView(getStatus(), getSyncCode())),
+  'sync-new': () => { connect(newCode()); refreshSyncSheet(); },
+  'sync-now': () => syncNow(),
+  'sync-off': () => { disconnect(); refreshSyncSheet(); },
+  'sync-copy': async () => {
+    const code = prettyCode(getSyncCode());
+    try { await navigator.clipboard.writeText(code); toast('Skopiowano kod'); } catch { toast(code); }
+  },
   'cal-day': (el) => {
     document.querySelectorAll('.cal-c.sel').forEach((n) => n.classList.remove('sel'));
     el.classList.add('sel');
@@ -430,6 +532,21 @@ document.addEventListener('submit', (e) => {
     quizCheck();
     return;
   }
+  if (e.target.id === 'profile-form') {
+    e.preventDefault();
+    setProfileName(e.target.dataset.id, new FormData(e.target).get('name'));
+    closeSheet();
+    toast('Zapisano profil');
+    return;
+  }
+  if (e.target.id === 'sync-form') {
+    e.preventDefault();
+    const code = normalizeCode(new FormData(e.target).get('code'));
+    if (!validCode(code)) return toast('Kod ma 12 znaków (litery i cyfry).');
+    connect(code);
+    refreshSyncSheet();
+    return;
+  }
   if (e.target.id !== 'card-form') return;
   e.preventDefault();
   const f = Object.fromEntries(new FormData(e.target));
@@ -439,6 +556,18 @@ document.addEventListener('submit', (e) => {
   closeSheet();
   toast('Zapisano fiszkę');
   render({ keepScroll: true });
+});
+
+document.addEventListener('change', async (e) => {
+  if (e.target.id !== 'av-file' || !e.target.files?.[0]) return;
+  const id = sheetEl.querySelector('#profile-form')?.dataset.id;
+  if (!id) return;
+  try {
+    setProfileAvatar(id, await fileToAvatar(e.target.files[0]));
+    refreshProfileSheet();
+  } catch (err) {
+    toast(err.message || 'Nie udało się wczytać zdjęcia.');
+  }
 });
 
 document.addEventListener('input', (e) => {
@@ -472,9 +601,16 @@ document.addEventListener('toggle', (e) => {
 }, true);
 
 // ——— Start ———
-applyTheme();
-matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
-render();
+// Przy świeżym uruchomieniu najpierw ekran wyboru profilu; odświeżenie strony w trakcie sesji wraca od razu do profilu.
+if (currentId()) {
+  applyTheme();
+  updateMe();
+  render();
+} else {
+  updateMe();
+  showPicker();
+}
+initSync();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => { /* offline-cache opcjonalny */ });

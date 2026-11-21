@@ -17,7 +17,7 @@
     /* Ustaw motyw przed pierwszym malowaniem (rodzina-tryb), żeby nie było błysku domyślnych kolorów. Logika jak w js/themes.js. */
     (function () {
       try {
-        var s = JSON.parse(localStorage.getItem('bothanzi:v1')) || {}, t = s.theme, m = s.themeMode;
+        var s = JSON.parse(localStorage.getItem('bothanzi:ui') || localStorage.getItem('bothanzi:v1')) || {}, t = s.theme, m = s.themeMode;
         var L = { las: ['las', 'dark'], poranek: ['las', 'light'], bursztyn: ['bursztyn', 'dark'], granat: ['granat', 'dark'], luxury: ['luxury', 'dark'], cynober: ['cynober', 'light'], dark: ['las', 'dark'], light: ['las', 'light'], auto: ['las', 'auto'] };
         if (!m && L[t]) { m = L[t][1]; t = L[t][0]; }
         if (!/^(las|herbata|zmierzch|noc|tusz|bursztyn|granat|luxury|cynober)$/.test(t)) t = 'las';
@@ -57,12 +57,14 @@
         <button class="icon-btn" type="button" data-act="theme" aria-label="Wybierz motyw kolorystyczny">
           <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-.9 2-1.8 0-.7-.4-1.2-.4-1.9 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1" fill="currentColor"/><circle cx="10" cy="7" r="1" fill="currentColor"/><circle cx="15" cy="7.5" r="1" fill="currentColor"/></svg>
         </button>
+        <button class="me-btn" type="button" data-act="me" id="me-btn" aria-label="Profil" hidden></button>
       </div>
       <div class="searchpanel" id="searchpanel" hidden></div>
     </header>
     <nav class="tabbar" id="tabbar" aria-label="Główna nawigacja"></nav>
     <main id="view" tabindex="-1"></main>
   </div>
+  <div id="picker" class="picker" hidden></div>
   <div id="sheet" class="sheet-root" hidden></div>
   <div id="session" class="session" hidden></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

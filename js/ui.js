@@ -1,6 +1,7 @@
 // Widoki jako funkcje zwracające HTML. Zdarzenia obsługuje app.js (delegacja po data-act).
 import { CHARS, LEVELS, BY_HANZI } from './data.js';
-import { state, isKnown, isHard, streak, dayStamp, dayStats, overallStats } from './store.js';
+import { state, isKnown, isHard, streak, dayStamp, dayStats, overallStats, profileInfo, profileList, whoHas, knownCountOf, hasLegacy, legacyCount, currentId } from './store.js';
+import { syncConfigured, prettyCode } from './sync.js';
 import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
 import { search } from './search.js';
 import { toneOf, TONE_LABEL } from './quiz.js';
@@ -24,6 +25,9 @@ export const ICONS = {
   check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
   translate: svg('<path d="M3.5 5.5h9M8 3.5v2M5.2 5.5c.6 3.2 2.8 5.6 5.8 7M11 5.5c-.6 3-3 5.8-7 7.5"/><path d="M12.5 20.5l3.6-9 3.6 9M13.9 17.4h4.4"/>'),
   chevron: svg('<path d="M7 10l5 5 5-5"/>'),
+  link: svg('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
+  pencil: svg('<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14.5 6.5l3 3"/>'),
+  camera: svg('<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
   palette: svg('<path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-.9 2-1.8 0-.7-.4-1.2-.4-1.9 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1" fill="currentColor"/><circle cx="10" cy="7" r="1" fill="currentColor"/><circle cx="15" cy="7.5" r="1" fill="currentColor"/>'),
 };
 
@@ -485,6 +489,98 @@ export function sentenceHTML(hanzi) {
   </div>`;
 }
 
+// ——— Profile: awatary, kto ma znak, ekran wyboru, edycja, synchronizacja ———
+export function avatarHTML(id, size = 'md') {
+  const p = profileInfo(id);
+  const inner = p.avatar
+    ? `<img src="${esc(p.avatar)}" alt="" draggable="false">`
+    : `<span aria-hidden="true">${esc([...p.name][0]?.toUpperCase() || '?')}</span>`;
+  return `<span class="av av-${size}" data-p="${id}">${inner}</span>`;
+}
+
+// Małe awatary osób, które mają znak w „Znanych”; czerwona obwódka, gdy jest w ich „Trudnych”.
+export function whoHTML(hanzi, cls = '') {
+  const list = whoHas(hanzi);
+  if (!list.length) return '';
+  const label = list.map((p) => `${p.name}: ${p.hard ? 'trudny' : 'znany'}`).join(', ');
+  return `<span class="who ${cls}" role="img" aria-label="${esc(label)}">${list.map((p) =>
+    `<span class="who-i${p.hard ? ' is-hard' : ''}" title="${esc(p.name)}: ${p.hard ? 'trudny' : 'znany'}">${avatarHTML(p.id, 'sm')}</span>`).join('')}</span>`;
+}
+
+export function profilePickerView() {
+  const legacy = hasLegacy()
+    ? `<div class="picker-note"><p>Znaleziono postęp z poprzedniej wersji (${legacyCount()} ${plural(legacyCount(), 'znak', 'znaki', 'znaków')}). Trafi do profilu, który teraz wybierzesz.</p><button class="link-btn" type="button" data-act="drop-legacy">Nie przenoś</button></div>`
+    : '';
+  const items = profileList().map((p) => {
+    const n = knownCountOf(p.id);
+    return `<li class="pick">
+      <button class="pick-main" type="button" data-act="pick-profile" data-id="${p.id}" aria-label="Wejdź jako ${esc(p.name)}">
+        ${avatarHTML(p.id, 'xl')}<b>${esc(p.name)}</b><small>${n} ${plural(n, 'znak', 'znaki', 'znaków')}</small>
+      </button>
+      <button class="link-btn" type="button" data-act="edit-profile" data-id="${p.id}">${ICONS.pencil} Edytuj</button>
+    </li>`;
+  }).join('');
+  return `<div class="picker-in">
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><g id="ant2"><path d="M27 33C22 27 20 21 18 11"/><path d="M23 25L12 21"/><path d="M20 17L20 8"/><path d="M25 29L16 30"/></g><use href="#ant2" transform="translate(64 0) scale(-1 1)"/></g><path d="M25 35Q32 30 39 35L32 56Z" fill="currentColor" opacity=".55"/></svg>
+      <h1>Kto się dziś uczy?</h1>
+      ${legacy}
+      <ul class="picks">${items}</ul>
+      <button class="link-btn" type="button" data-act="open-sync">${ICONS.link} Połącz z drugim telefonem</button>
+    </div>`;
+}
+
+export function profileSheetView(id, { picker = false } = {}) {
+  const p = profileInfo(id);
+  return `<div class="sheet-backdrop" data-act="close-sheet"></div>
+    <form class="sheet sheet-profile" id="profile-form" data-id="${id}" role="dialog" aria-modal="true" aria-label="Profil ${esc(p.name)}">
+      <div class="grab" aria-hidden="true"></div>
+      <h2>Profil</h2>
+      <div class="av-edit">${avatarHTML(id, 'xxl')}</div>
+      <div class="av-actions">
+        <button class="link-btn" type="button" data-act="pick-photo">${ICONS.camera} ${p.avatar ? 'Zmień zdjęcie' : 'Dodaj zdjęcie'}</button>
+        ${p.avatar ? '<button class="link-btn" type="button" data-act="remove-photo">Usuń zdjęcie</button>' : ''}
+      </div>
+      <input type="file" id="av-file" accept="image/*" hidden>
+      <label>Nazwa<input name="name" value="${esc(p.name)}" maxlength="16" required autocomplete="off"></label>
+      <div class="btn-col">
+        <button class="btn primary" type="submit">Zapisz</button>
+        ${picker ? '' : '<button class="btn" type="button" data-act="switch-profile">Zmień profil</button><button class="btn" type="button" data-act="open-sync">Synchronizacja</button>'}
+        <button class="btn" type="button" data-act="close-sheet">Zamknij</button>
+      </div>
+    </form>`;
+}
+
+export function syncSheetView(status, code) {
+  let body;
+  if (!syncConfigured()) {
+    body = `<p class="muted">Synchronizacja nie jest jeszcze włączona w tej instalacji aplikacji. Do połączenia dwóch telefonów potrzebna jest darmowa baza Firebase; kroki są w pliku <b>docs/FIREBASE.md</b>. Do tego czasu każdy profil żyje tylko na tym urządzeniu.</p>`;
+  } else if (!code) {
+    body = `<p class="muted">Kod parowania łączy telefony: dzięki niemu każdy widzi postęp drugiej osoby, a profile są kopiowane na oba urządzenia.</p>
+      <div class="btn-col"><button class="btn primary" type="button" data-act="sync-new">Utwórz kod na tym telefonie</button></div>
+      <p class="muted sync-or">albo wpisz kod z drugiego telefonu</p>
+      <form id="sync-form" class="sync-join"><input name="code" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Kod parowania" maxlength="16"><button class="btn primary" type="submit">Połącz</button></form>`;
+  } else {
+    const st = status.state === 'syncing' ? 'Synchronizuję…'
+      : status.state === 'error' ? status.msg
+      : status.at ? `Zsynchronizowano o ${new Date(status.at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}.` : 'Czekam na pierwszą synchronizację.';
+    body = `<p class="muted">Wpisz ten kod na drugim telefonie (Połącz z drugim telefonem):</p>
+      <p class="sync-code" aria-label="Kod parowania">${esc(prettyCode(code))}</p>
+      <p class="sync-status${status.state === 'error' ? ' is-err' : ''}" role="status">${esc(st)}</p>
+      <div class="btn-col">
+        <button class="btn" type="button" data-act="sync-copy">Skopiuj kod</button>
+        <button class="btn primary" type="button" data-act="sync-now">Synchronizuj teraz</button>
+        <button class="btn" type="button" data-act="sync-off">Rozłącz ten telefon</button>
+      </div>`;
+  }
+  return `<div class="sheet-backdrop" data-act="close-sheet"></div>
+    <section class="sheet sheet-sync" role="dialog" aria-modal="true" aria-label="Synchronizacja">
+      <div class="grab" aria-hidden="true"></div>
+      <h2>Synchronizacja</h2>
+      ${body}
+      ${syncConfigured() && code ? '' : '<div class="btn-col"><button class="btn" type="button" data-act="close-sheet">Zamknij</button></div>'}
+    </section>`;
+}
+
 // ——— Wybór motywu (arkusz od dołu): rodzina kolorów; tryb ciemny/jasny przełącza się osobnym przyciskiem w nagłówku ———
 export function themeSheetView(current, mode) {
   const eff = effectiveMode(mode || 'auto');
@@ -497,7 +593,7 @@ export function themeSheetView(current, mode) {
     <section class="sheet sheet-themes" role="dialog" aria-modal="true" aria-label="Motyw kolorystyczny">
       <div class="grab" aria-hidden="true"></div>
       <h2>Motyw kolorystyczny</h2>
-      <p class="muted theme-note">Wybór dotyczy tylko tego urządzenia.</p>
+      <p class="muted theme-note">Motyw zapisuje się w profilu: ${esc(profileInfo(currentId())?.name || '')}. Drugi profil ma własny.</p>
       ${group('pink', 'Różowy akcent')}
       ${group('own', 'Własny akcent')}
       <div class="btn-col"><button class="btn" type="button" data-act="close-sheet">Gotowe</button></div>
@@ -517,7 +613,7 @@ export function sheetView(c) {
         <figure class="wbox stroke-box" data-h="${esc(c.hanzi)}"><div class="wframe"></div><figcaption class="stroke-count">Kolejność kresek</figcaption></figure>
       </div>
       <p class="sheet-py">${esc(c.pinyin)}</p>
-      <p class="pill">${lv ? lv.label : ''}</p>
+      <div class="sheet-meta"><p class="pill">${lv ? lv.label : ''}</p>${whoHTML(c.hanzi)}</div>
       <dl class="meanings"><div><dt>Polski</dt><dd>${esc(c.pl)}</dd></div><div><dt>English</dt><dd>${esc(c.en)}</dd></div></dl>
       ${sentenceHTML(c.hanzi)}
       <div class="btn-col">
@@ -567,6 +663,7 @@ export function sessionView(S) {
           ${c.note ? `<p class="card-note">${esc(c.note)}</p>` : ''}
           ${c.key.startsWith('c:') ? '' : sentenceHTML(c.hanzi)}
         </div>
+        ${whoHTML(c.hanzi, 'card-who')}
         <p class="card-hint">Dotknij, aby odkryć</p>
         <span class="stamp stamp-yes">Znam</span><span class="stamp stamp-no">${m.left}</span><span class="stamp stamp-skip">Dalej</span>
       </div>
