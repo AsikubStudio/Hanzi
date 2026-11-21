@@ -1,10 +1,10 @@
-# BotHanzi: architektura (v0.22)
+# BotHanzi: architektura (v0.23)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
 - Dane po stronie klienta; postęp w localStorage (`bothanzi:v2`, osobno dla profili Asia i Kuba). Bez kont; opcjonalna synchronizacja między telefonami przez Firestore i kod parowania (v0.16).
 - Język interfejsu: polski. Znaczenia: polski + angielski.
-- Standard HSK 2.0, poziomy 1–6; poziom 7 oznacza „6+”.
+- Standard: sylabus HSK 3.0 (od v0.23; wcześniej HSK 2.0), poziomy 1–6; poziom 7 oznacza „6+” (HSK 7–9).
 
 ## Model danych
 Znak: `{ hanzi, pinyin (z tonami), hsk (1–7), en, pl }`; znaczenia rozdzielone średnikiem.
@@ -84,6 +84,14 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 - Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
 - `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
 
+## Zmiany w v0.23 (przejście na sylabus HSK 3.0)
+- **Standard poziomów**: od v0.23 poziomy znaków wynikają z sylabusu HSK 3.0 (CLEC, listopad 2025; pierwsze egzaminy 13.12.2026), a nie z HSK 2.0. Źródło: `complete.json` z drkameleon/complete-hsk-vocabulary, tagi `newest-1…7` (to lista słów sylabusu z 2025; tagi `new-*` to starsza wersja z 2021). Znak dostaje najniższy poziom słowa, w którym występuje. Narastające sumy znaków z tych list: 248 (HSK 1), 371 (HSK 2), 653 (HSK 3), czyli prawie dokładnie oficjalne 246 / 371 / 655. Od HSK 4 wyliczone sumy są większe od oficjalnych (np. 1092 zamiast 1000), bo oficjalna lista znaków ma własny podział, którego nie ma w liście słów; dlatego poziomy 4–6 zaimportujemy dopiero po znalezieniu oficjalnej listy znaków (rozpoznawanych).
+- **Baza**: 660 znaków (HSK 1: 248, HSK 2: 123, HSK 3: 282, HSK 4: 5, HSK 5: 1, HSK 6+: 1). HSK 1–3 są kompletne. Dodano 299 znaków (10 / 30 / 259), 87 znaków z bazy zmieniło poziom (np. 新, 要, 也, 到 z HSK 2 na 1; 北 na 3, 京 na 4). Postęp jest zapisany po znaku, więc nic się nie gubi. Kolejność w poziomie: najpierw znaki będące słowami jednoznakowymi, potem wg częstości słowa.
+- Zdania przykładowe: 478 (+227), kontrola `node tools/check-data.mjs` przechodzi. Kreski: 660 plików, `strokes/index.json` w kolejności bazy.
+- Service worker: `bothanzi-v28`, `STROKES_PRECACHE = 700` (wszystkie kreski wgrywane z góry, ok. 2,7 MB). Przy HSK 4+ trzeba będzie wrócić do wgrywania przy pierwszym użyciu.
+- Wydania dzielimy na paczki po maks. 100 plików (limit wgrywania przez przeglądarkę na GitHubie; praktycznie ok. 55 na paczkę).
+- Polskie znaczenia nowych znaków (HSK 2 z v0.22 i HSK 1–3 z v0.23) są robocze: `znaczenia-do-przegladu-hsk3.csv`.
+
 ## Zmiany w v0.22 (HSK 2)
 - Baza: kompletny HSK 2 według oficjalnej listy HSK 2.0: 161 nowych znaków (poziom ma 168 razem z siedmioma wcześniejszymi), razem 361 znaków (HSK 1: 178, HSK 2: 168, 3: 9, 4: 4, 5: 1, 6+: 1). Lista wygenerowana `tools/hsk-missing.py` (źródło: drkameleon/complete-hsk-vocabulary), kolejność w poziomie wg najmniejszej częstości słowa HSK 2 z tym znakiem („Ucz się nowych” zaczyna od 就, 要, 也, 到, 还).
 - Pinyin w polu może mieć kilka odczytań (`hái; huán`); w kafelku zostawiono najwyżej dwa lub trzy, żeby wiersze siatki nie rosły (着: `zhe; zháo`). Dla znaków występujących tylko w słowach (咖, 啡, 睛, 丈, 斤…) znaczenie ma dopisek „w 咖啡” itp.
@@ -149,7 +157,7 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 ## Następne kroki
 0. **Zrobione w v0.16: profile Asia i Kuba** (kod gotowy). Do włączenia synchronizacji trzeba założyć projekt Firebase wg `docs/FIREBASE.md` i wpisać klucze w `js/config.js`. Do rozważenia: powiadomienie „Asia powtórzyła dziś N kart”.
 0b. **Zrobione w v0.14–v0.16: motywy kolorystyczne** (motyw i tryb są w danych profilu). Dziś są dwa tryby (jasny i ciemny) oparte na zmiennych CSS (`--bg`, `--surface`, `--pink`, `--gold` itd.), więc motywy to zestawy tych zmiennych wybierane atrybutem `data-theme`. Do ustalenia: ile motywów i jakie (np. obecny zielono-różowy, nocny granat, ciepły bursztyn), czy motyw jest per profil, czy per urządzenie, oraz czy zmieniają się też hero (góry, słońce) i kafel serii. Wybór zapisany w stanie (`theme`) i w `theme-color` meta.
-1. Zrobione w v0.22: HSK 2. Dalej HSK 3 (brakuje ok. 300 znaków), potem poziomy 4–6; przejrzenie polskich znaczeń HSK 1 i 2. Zrobione w v0.19: kontrola danych, kreski przy pierwszym użyciu, wymowa, karta „Ostatnie 7 dni”. Zostaje: eksport/import postępu (JSON; projekt: plik z profilem, import scala lub zastępuje po podsumowaniu), przegląd polskich znaczeń HSK 1 (plik CSV do przeglądu).
+1. Dalej: poziomy 4–6 wg sylabusu HSK 3.0 (po znalezieniu oficjalnej listy znaków rozpoznawanych; ok. 1700 znaków, więc w partiach po ~400); przegląd polskich znaczeń HSK 1–3. Zrobione w v0.23: HSK 1–3 wg HSK 3.0; v0.22: HSK 2. Zrobione w v0.19: kontrola danych, kreski przy pierwszym użyciu, wymowa, karta „Ostatnie 7 dni”. Zostaje: eksport/import postępu (JSON; projekt: plik z profilem, import scala lub zastępuje po podsumowaniu), przegląd polskich znaczeń HSK 1 (plik CSV do przeglądu).
 2. Audio; tryb ćwiczenia rysowania znaku palcem.
 3. Eksport/import postępu (JSON) i ewentualna synchronizacja.
 4. Weryfikacja iOS: instalacja z Safari, ikony, pasek stanu.
