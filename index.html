@@ -14,13 +14,15 @@
   <meta name="apple-mobile-web-app-title" content="BotHanzi">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script>
-    /* Ustaw motyw przed pierwszym malowaniem, żeby nie było błysku domyślnych kolorów. */
+    /* Ustaw motyw przed pierwszym malowaniem (rodzina-tryb), żeby nie było błysku domyślnych kolorów. Logika jak w js/themes.js. */
     (function () {
       try {
-        var t = (JSON.parse(localStorage.getItem('bothanzi:v1')) || {}).theme;
-        var ok = { las: 1, poranek: 1, bursztyn: 1, granat: 1, luxury: 1, cynober: 1 };
-        if (!ok[t]) t = t === 'light' ? 'poranek' : t === 'dark' ? 'las' : (matchMedia('(prefers-color-scheme: dark)').matches ? 'las' : 'poranek');
-        document.documentElement.setAttribute('data-theme', t);
+        var s = JSON.parse(localStorage.getItem('bothanzi:v1')) || {}, t = s.theme, m = s.themeMode;
+        var L = { las: ['las', 'dark'], poranek: ['las', 'light'], bursztyn: ['bursztyn', 'dark'], granat: ['granat', 'dark'], luxury: ['luxury', 'dark'], cynober: ['cynober', 'light'], dark: ['las', 'dark'], light: ['las', 'light'], auto: ['las', 'auto'] };
+        if (!m && L[t]) { m = L[t][1]; t = L[t][0]; }
+        if (!/^(las|herbata|zmierzch|noc|tusz|bursztyn|granat|luxury|cynober)$/.test(t)) t = 'las';
+        if (m !== 'dark' && m !== 'light') m = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t + '-' + m);
       } catch (e) {}
     })();
   </script>

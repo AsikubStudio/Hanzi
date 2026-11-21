@@ -1,11 +1,11 @@
 import { BY_HANZI } from './data.js';
 import {
-  state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logReview, logTime, setTheme, setShowTr,
+  state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logReview, logTime, setTheme, setThemeMode, setShowTr,
 } from './store.js';
 import { grade, dueDeck, knownDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
 import { search } from './search.js';
 import { gradeAnswer } from './quiz.js';
-import { resolveTheme, themeMeta } from './themes.js';
+import { normalizeTheme, themeAttr, themeMeta } from './themes.js';
 import { mountStrokes } from './strokes.js';
 import {
   tabbarHTML, homeView, knownView, cardsView, tierBodyHTML, resultsHTML, knownGridHTML, quizCount,
@@ -76,21 +76,41 @@ qInput.addEventListener('input', refreshSearch);
 qClear.addEventListener('click', () => { clearSearch(); qInput.focus(); });
 
 // ——— Motyw ———
-// Motywy to zestawy zmiennych CSS (css/themes.css); wybór jest zapisany w state.theme na tym urządzeniu.
+// Motyw = rodzina kolorów (state.theme) × tryb (state.themeMode: auto/ciemny/jasny). Zmienne CSS: css/themes.css.
+// Wybór jest zapisany na tym urządzeniu; starsze zapisy migrują się przy pierwszym uruchomieniu.
 function applyTheme() {
-  const id = resolveTheme(state.theme);
-  document.documentElement.setAttribute('data-theme', id);
-  $('meta[name="theme-color"]').setAttribute('content', themeMeta(id));
+  const n = normalizeTheme(state.theme, state.themeMode);
+  if (state.theme !== n.theme) setTheme(n.theme);
+  if (state.themeMode !== n.mode) setThemeMode(n.mode);
+  document.documentElement.setAttribute('data-theme', themeAttr(n.theme, n.mode));
+  $('meta[name="theme-color"]').setAttribute('content', themeMeta(n.theme, n.mode));
 }
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (state.themeMode === 'auto') applyTheme(); });
 
 function openThemes() {
-  openSheet(themeSheetView(resolveTheme(state.theme)));
+  openSheet(themeSheetView(state.theme, state.themeMode));
+}
+
+function refreshThemeSheet() {
+  const box = sheetEl.querySelector('.sheet');
+  if (!box) return;
+  const scroll = box.scrollTop;
+  sheetEl.innerHTML = themeSheetView(state.theme, state.themeMode);
+  sheetEl.querySelector('.sheet').scrollTop = scroll;
 }
 
 function pickTheme(el) {
   setTheme(el.dataset.id);
   applyTheme();
-  sheetEl.querySelectorAll('.theme-card').forEach((b) => b.setAttribute('aria-pressed', String(b === el)));
+  refreshThemeSheet();
+  sheetEl.querySelector(`.theme-card[data-id="${el.dataset.id}"]`)?.focus({ preventScroll: true });
+}
+
+function pickMode(el) {
+  setThemeMode(el.dataset.mode);
+  applyTheme();
+  refreshThemeSheet();
+  sheetEl.querySelector(`.mode-btn[data-mode="${el.dataset.mode}"]`)?.focus({ preventScroll: true });
 }
 
 // ——— Toast ———
@@ -330,6 +350,7 @@ const ACTIONS = {
   'close-sheet': closeSheet,
   theme: openThemes,
   'set-theme': pickTheme,
+  'set-mode': pickMode,
   'cal-day': (el) => {
     document.querySelectorAll('.cal-c.sel').forEach((n) => n.classList.remove('sel'));
     el.classList.add('sel');

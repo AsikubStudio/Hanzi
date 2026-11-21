@@ -517,10 +517,15 @@ button.cal-c { cursor: pointer; }
 
 
 /* ——— Wybór motywu ——— */
+.sheet-themes { max-height: 92dvh; overflow-y: auto; }
 .theme-note { margin-top: 2px; }
-.theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; margin: 14px 0 6px; }
+.mode-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 100%; margin: 14px 0 4px; padding: 4px; border-radius: 14px; background: var(--surface-2); }
+.mode-btn { min-height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); font-weight: 600; }
+.mode-btn[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.theme-group { width: 100%; text-align: left; font: 600 .82rem var(--sans); color: var(--ink-2); margin: 14px 0 0; }
+.theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; margin: 8px 0 0; }
 .theme-card {
-  display: grid; gap: 4px; justify-items: start; text-align: left; padding: 12px; border-radius: 16px;
+  display: grid; gap: 4px; align-content: start; justify-items: start; text-align: left; padding: 12px; border-radius: 16px;
   border: 1.5px solid var(--line); background: var(--surface); color: var(--ink);
 }
 .theme-card b { font-weight: 650; font-size: .95rem; }
@@ -528,3 +533,4 @@ button.cal-c { cursor: pointer; }
 .theme-card[aria-pressed="true"] { border-color: var(--pink); box-shadow: 0 0 0 1px var(--pink); }
 .theme-sw { display: flex; margin-bottom: 4px; }
 .theme-sw i { width: 22px; height: 22px; border-radius: 50%; margin-right: -6px; }
+.sheet-themes .btn-col { margin-top: 18px; }

@@ -4,13 +4,14 @@
 // custom:   [{ id, hanzi, pinyin, en, pl, note }] własne fiszki
 // srs:      { [key]: { box, due } }              powtórki (key = hanzi lub „c:<id>”)
 // activity: { 'YYYY-MM-DD': liczba ocenionych kart }
-// theme:    id motywu z js/themes.js ('las', 'poranek', 'bursztyn', 'granat', 'luxury', 'cynober') albo 'auto' (zgodnie z systemem)
+// theme:    id rodziny kolorystycznej z js/themes.js ('las', 'herbata', 'zmierzch', 'noc', 'tusz', 'bursztyn', 'granat', 'luxury', 'cynober')
+// themeMode: 'auto' | 'dark' | 'light' (null = starszy zapis; migracja w js/themes.js)
 // log:      { 'YYYY-MM-DD': { r: powtórki, g: oceny do retencji, ok: poprawne, t: czas nauki w ms } }
 // showTr:   czy pokazywać tłumaczenie zdań przykładowych (ikona tłumacza w rogu zdania)
 
 const KEY = 'bothanzi:v1';
 
-const defaults = () => ({ known: {}, hard: [], custom: [], srs: {}, activity: {}, log: {}, theme: 'auto', showTr: false });
+const defaults = () => ({ known: {}, hard: [], custom: [], srs: {}, activity: {}, log: {}, theme: 'las', themeMode: null, showTr: false });
 
 function load() {
   try {
@@ -112,5 +113,10 @@ export function setShowTr(v) {
 
 export function setTheme(t) {
   state.theme = t;
+  save();
+}
+
+export function setThemeMode(m) {
+  state.themeMode = m;
   save();
 }

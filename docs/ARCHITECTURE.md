@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.13)
+# BotHanzi: architektura (v0.14)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -84,19 +84,20 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
 - `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
 
-## Zmiany w v0.13 (motywy kolorystyczne)
-- Wspólna pula 6 motywów: Las nocą (obecny ciemny), Poranek w lesie (obecny jasny), Bursztyn (ciepły, herbaciany), Granat z koralem, Luxury (czerń i złoto), Tusz i cynober (papier ryżowy, czerwień). Każda osoba wybiera swój motyw i nie zmienia go drugiej (na razie wybór jest per urządzenie; przy profilach trafi do danych profilu).
-- Motyw to zestaw zmiennych CSS w `css/themes.css`, przełączany atrybutem `<html data-theme="id">`. Zmienne „scena” (`--stage-*`, `--g0…g5`, `--st-ink*`, `--lamp*`, `--btn-st-*`) dotyczą ciemnych powierzchni z krajobrazem: hero, kafel serii, sesje i quiz. Lampiony, gradienty słońca i mgły oraz wzór meandra używają zmiennych (klasy `.lp-*`, `.s-pink`, maska zamiast data-URI z kolorem), więc zmieniają się razem z motywem bez ponownego renderowania.
-- `js/themes.js`: lista motywów, `resolveTheme` (starsze wartości `dark`/`light`/`auto` mapują się na `las`/`poranek`/zgodnie z systemem) i kolor paska przeglądarki (`theme-color`). Mały skrypt w `<head>` ustawia motyw przed pierwszym malowaniem, żeby nie było błysku.
-- Przycisk w nagłówku (ikona palety) otwiera arkusz „Motyw kolorystyczny”; wybór działa od razu i jest zapisany w `state.theme`.
-- Service worker: `bothanzi-v14` (w app shellu `css/themes.css`, `js/themes.js`).
+## Zmiany w v0.13–v0.14 (motywy kolorystyczne)
+- Model: rodzina kolorów × tryb. 9 rodzin, każda w trybie ciemnym i jasnym, wybór trybu Auto/Ciemny/Jasny (Auto podąża za systemem, także na żywo). Rodziny z różowym akcentem: Las, Herbata (brąz), Zmierzch (granat), Noc (czerń), Tusz (grafit). Rodziny z własnym akcentem: Bursztyn, Granat z koralem, Luxury (czerń i złoto), Tusz i cynober. Każda osoba wybiera swój motyw i nie zmienia go drugiej (na razie wybór jest per urządzenie; przy profilach trafi do danych profilu).
+- Źródło prawdy: `tools/gen-themes.py` generuje `css/themes.css` i `js/themes.js` (nie edytować ręcznie; nowy motyw = nowy wpis w `FAMILIES` i uruchomienie skryptu). Motyw to atrybut `<html data-theme="rodzina-ciemny|jasny">`. Zmienne „scena” (`--stage-*`, `--g0…g5`, `--st-ink*`, `--lamp*`, `--btn-st-*`) dotyczą ciemnych powierzchni z krajobrazem (hero, kafel serii, sesje, quiz) i zależą tylko od rodziny; w trybie jasnym zmieniają się powierzchnie interfejsu, a scena zostaje ciemna.
+- Lampiony, gradienty słońca i mgły oraz wzór meandra używają zmiennych (klasy `.lp-*`, `.s-pink`, maska zamiast data-URI z kolorem), więc zmieniają się razem z motywem bez ponownego renderowania.
+- Stan: `state.theme` (id rodziny) i `state.themeMode` (`auto`/`dark`/`light`). Starsze zapisy (`dark`, `light`, `auto`, `poranek`, `las`, `bursztyn`, `granat`, `luxury`, `cynober`) migrują się w `normalizeTheme` (`js/themes.js`); mały skrypt w `<head>` ustawia motyw przed pierwszym malowaniem (bez błysku).
+- UI: ikona palety w nagłówku otwiera arkusz „Motyw kolorystyczny” (przełącznik trybu + dwie grupy rodzin: „Różowy akcent” i „Własny akcent”); wybór działa od razu.
+- Service worker: `bothanzi-v15` (w app shellu `css/themes.css`, `js/themes.js`).
 
 ## Dane kresek i licencja
 Źródło: hanzi-writer-data (Make Me a Hanzi / Arphic Public License). Tekst licencji w `strokes/LICENSE-ARPHIC.txt`.
 
 ## Następne kroki
 0. **Na jutro (zgłoszone 21.11): profile Asia i Kuba.** Ustalenia: (a) dwa osobne telefony, więc potrzebna synchronizacja w chmurze, żeby widzieć stan drugiej osoby; (b) ekran wyboru profilu przy każdym starcie (dwa duże kółka); (c) wszystko osobno dla profilu: znane, trudne, fiszki, SRS, seria, kalendarz, statystyki, własne fiszki; (d) nazwę można zmienić, a zdjęcie wybrać (okrągły awatar, zmniejszone do ok. 128 px i zapisane jako data URL); (e) awatary pokazujemy na karcie znaku (arkusz szczegółów) i na fiszkach (przód/tył): mały awatar osoby, która ma znak w „Znanych”, a czerwona obwódka, gdy znak jest u niej w „Trudnych”. Otwarte: wybór backendu (propozycja: Firebase Firestore lub Supabase, plan darmowy), kod parowania zamiast kont, scalanie zmian z dwóch urządzeń (last-write-wins per znak ze znacznikiem czasu).
-0b. **Zrobione w v0.13: kilka motywów kolorystycznych do wyboru** (zostało: przenieść wybór motywu do danych profilu). Dziś są dwa tryby (jasny i ciemny) oparte na zmiennych CSS (`--bg`, `--surface`, `--pink`, `--gold` itd.), więc motywy to zestawy tych zmiennych wybierane atrybutem `data-theme`. Do ustalenia: ile motywów i jakie (np. obecny zielono-różowy, nocny granat, ciepły bursztyn), czy motyw jest per profil, czy per urządzenie, oraz czy zmieniają się też hero (góry, słońce) i kafel serii. Wybór zapisany w stanie (`theme`) i w `theme-color` meta.
+0b. **Zrobione w v0.14: motywy kolorystyczne** (zostało: przenieść wybór motywu i trybu do danych profilu). Dziś są dwa tryby (jasny i ciemny) oparte na zmiennych CSS (`--bg`, `--surface`, `--pink`, `--gold` itd.), więc motywy to zestawy tych zmiennych wybierane atrybutem `data-theme`. Do ustalenia: ile motywów i jakie (np. obecny zielono-różowy, nocny granat, ciepły bursztyn), czy motyw jest per profil, czy per urządzenie, oraz czy zmieniają się też hero (góry, słońce) i kafel serii. Wybór zapisany w stanie (`theme`) i w `theme-color` meta.
 1. HSK 2 (161 brakujących znaków), potem poziomy 3–6; przejrzenie polskich znaczeń HSK 1.
 2. Audio; tryb ćwiczenia rysowania znaku palcem.
 3. Eksport/import postępu (JSON) i ewentualna synchronizacja.
