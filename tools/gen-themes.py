@@ -134,7 +134,6 @@ js = f'''// GENEROWANE przez tools/gen-themes.py: nie edytuj ręcznie.
 export const FAMILIES = {json.dumps(fams, ensure_ascii=False, indent=2)};
 
 const IDS = new Set(FAMILIES.map((f) => f.id));
-export const MODES = [['auto', 'Auto'], ['dark', 'Ciemny'], ['light', 'Jasny']];
 
 // Starsze wartości ustawienia `theme` (przed v0.14) → [rodzina, tryb].
 const LEGACY = {{ las: ['las', 'dark'], poranek: ['las', 'light'], bursztyn: ['bursztyn', 'dark'], granat: ['granat', 'dark'],

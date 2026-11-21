@@ -5,7 +5,7 @@ import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
 import { search } from './search.js';
 import { toneOf, TONE_LABEL } from './quiz.js';
 import { bestSentence } from './sentences.js';
-import { FAMILIES, MODES as THEME_MODES, effectiveMode } from './themes.js';
+import { FAMILIES, effectiveMode } from './themes.js';
 
 export const esc = (s = '') =>
   String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -485,7 +485,7 @@ export function sentenceHTML(hanzi) {
   </div>`;
 }
 
-// ——— Wybór motywu (arkusz od dołu): tryb (auto/ciemny/jasny) + rodzina kolorów ———
+// ——— Wybór motywu (arkusz od dołu): rodzina kolorów; tryb ciemny/jasny przełącza się osobnym przyciskiem w nagłówku ———
 export function themeSheetView(current, mode) {
   const eff = effectiveMode(mode || 'auto');
   const card = (t) => `<button class="theme-card" type="button" data-act="set-theme" data-id="${t.id}" aria-pressed="${t.id === current}">
@@ -493,13 +493,11 @@ export function themeSheetView(current, mode) {
       <b>${esc(t.name)}</b><small>${esc(t.note)}</small>
     </button>`;
   const group = (g, title) => `<h3 class="theme-group">${title}</h3><div class="theme-grid">${FAMILIES.filter((f) => f.group === g).map(card).join('')}</div>`;
-  const modes = THEME_MODES.map(([id, label]) => `<button class="mode-btn" type="button" data-act="set-mode" data-mode="${id}" aria-pressed="${id === (mode || 'auto')}">${label}</button>`).join('');
   return `<div class="sheet-backdrop" data-act="close-sheet"></div>
     <section class="sheet sheet-themes" role="dialog" aria-modal="true" aria-label="Motyw kolorystyczny">
       <div class="grab" aria-hidden="true"></div>
       <h2>Motyw kolorystyczny</h2>
       <p class="muted theme-note">Wybór dotyczy tylko tego urządzenia.</p>
-      <div class="mode-row" role="group" aria-label="Wygląd">${modes}</div>
       ${group('pink', 'Różowy akcent')}
       ${group('own', 'Własny akcent')}
       <div class="btn-col"><button class="btn" type="button" data-act="close-sheet">Gotowe</button></div>

@@ -84,6 +84,9 @@ Stan: `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, 
 - Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
 - `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
 
+## Zmiany w v0.15 (przełącznik trybu)
+- Segmentowy wybór Auto/Ciemny/Jasny usunięty z arkusza motywów. W nagłówku, obok ikony palety, jest przycisk słońce/księżyc (`#mode-btn`, `data-act="mode"`): przełącza ciemny↔jasny względem trybu efektywnego (`effectiveMode`). Do pierwszego kliknięcia `themeMode` = auto (zgodnie z systemem); potem zapisany jawnie. Ikona i aria-label zależą od trybu (CSS po `data-theme$="-dark|-light"`, label w `applyTheme`). Arkusz jest modalny, więc przełącznik działa po jego zamknięciu.
+
 ## Zmiany w v0.13–v0.14 (motywy kolorystyczne)
 - Model: rodzina kolorów × tryb. 9 rodzin, każda w trybie ciemnym i jasnym, wybór trybu Auto/Ciemny/Jasny (Auto podąża za systemem, także na żywo). Rodziny z różowym akcentem: Las, Herbata (brąz), Zmierzch (granat), Noc (czerń), Tusz (grafit). Rodziny z własnym akcentem: Bursztyn, Granat z koralem, Luxury (czerń i złoto), Tusz i cynober. Każda osoba wybiera swój motyw i nie zmienia go drugiej (na razie wybór jest per urządzenie; przy profilach trafi do danych profilu).
 - Źródło prawdy: `tools/gen-themes.py` generuje `css/themes.css` i `js/themes.js` (nie edytować ręcznie; nowy motyw = nowy wpis w `FAMILIES` i uruchomienie skryptu). Motyw to atrybut `<html data-theme="rodzina-ciemny|jasny">`. Zmienne „scena” (`--stage-*`, `--g0…g5`, `--st-ink*`, `--lamp*`, `--btn-st-*`) dotyczą ciemnych powierzchni z krajobrazem (hero, kafel serii, sesje, quiz) i zależą tylko od rodziny; w trybie jasnym zmieniają się powierzchnie interfejsu, a scena zostaje ciemna.

@@ -5,7 +5,7 @@ import {
 import { grade, dueDeck, knownDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
 import { search } from './search.js';
 import { gradeAnswer } from './quiz.js';
-import { normalizeTheme, themeAttr, themeMeta } from './themes.js';
+import { normalizeTheme, themeAttr, themeMeta, effectiveMode } from './themes.js';
 import { mountStrokes } from './strokes.js';
 import {
   tabbarHTML, homeView, knownView, cardsView, tierBodyHTML, resultsHTML, knownGridHTML, quizCount,
@@ -76,7 +76,9 @@ qInput.addEventListener('input', refreshSearch);
 qClear.addEventListener('click', () => { clearSearch(); qInput.focus(); });
 
 // ——— Motyw ———
-// Motyw = rodzina kolorów (state.theme) × tryb (state.themeMode: auto/ciemny/jasny). Zmienne CSS: css/themes.css.
+// Motyw = rodzina kolorów (state.theme, wybór w arkuszu z ikony palety) × tryb (state.themeMode: auto/ciemny/jasny;
+// przełącznik słońce/księżyc w nagłówku ustawia ciemny lub jasny, a do czasu pierwszego kliknięcia trwa Auto = zgodnie z systemem).
+// Zmienne CSS: css/themes.css.
 // Wybór jest zapisany na tym urządzeniu; starsze zapisy migrują się przy pierwszym uruchomieniu.
 function applyTheme() {
   const n = normalizeTheme(state.theme, state.themeMode);
@@ -84,6 +86,7 @@ function applyTheme() {
   if (state.themeMode !== n.mode) setThemeMode(n.mode);
   document.documentElement.setAttribute('data-theme', themeAttr(n.theme, n.mode));
   $('meta[name="theme-color"]').setAttribute('content', themeMeta(n.theme, n.mode));
+  $('#mode-btn').setAttribute('aria-label', effectiveMode(n.mode) === 'dark' ? 'Przełącz na jasny tryb' : 'Przełącz na ciemny tryb');
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (state.themeMode === 'auto') applyTheme(); });
 
@@ -106,11 +109,10 @@ function pickTheme(el) {
   sheetEl.querySelector(`.theme-card[data-id="${el.dataset.id}"]`)?.focus({ preventScroll: true });
 }
 
-function pickMode(el) {
-  setThemeMode(el.dataset.mode);
+function toggleMode() {
+  setThemeMode(effectiveMode(state.themeMode) === 'dark' ? 'light' : 'dark');
   applyTheme();
-  refreshThemeSheet();
-  sheetEl.querySelector(`.mode-btn[data-mode="${el.dataset.mode}"]`)?.focus({ preventScroll: true });
+  if (sheetEl.querySelector('.sheet-themes')) refreshThemeSheet();
 }
 
 // ——— Toast ———
@@ -350,7 +352,7 @@ const ACTIONS = {
   'close-sheet': closeSheet,
   theme: openThemes,
   'set-theme': pickTheme,
-  'set-mode': pickMode,
+  mode: toggleMode,
   'cal-day': (el) => {
     document.querySelectorAll('.cal-c.sel').forEach((n) => n.classList.remove('sel'));
     el.classList.add('sel');
