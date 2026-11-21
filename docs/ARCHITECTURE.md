@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.21)
+# BotHanzi: architektura (v0.22)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -84,6 +84,14 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 - Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
 - `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
 
+## Zmiany w v0.22 (HSK 2)
+- Baza: kompletny HSK 2 według oficjalnej listy HSK 2.0: 161 nowych znaków (poziom ma 168 razem z siedmioma wcześniejszymi), razem 361 znaków (HSK 1: 178, HSK 2: 168, 3: 9, 4: 4, 5: 1, 6+: 1). Lista wygenerowana `tools/hsk-missing.py` (źródło: drkameleon/complete-hsk-vocabulary), kolejność w poziomie wg najmniejszej częstości słowa HSK 2 z tym znakiem („Ucz się nowych” zaczyna od 就, 要, 也, 到, 还).
+- Pinyin w polu może mieć kilka odczytań (`hái; huán`); w kafelku zostawiono najwyżej dwa lub trzy, żeby wiersze siatki nie rosły (着: `zhe; zháo`). Dla znaków występujących tylko w słowach (咖, 啡, 睛, 丈, 斤…) znaczenie ma dopisek „w 咖啡” itp.
+- Kreski dla wszystkich nowych znaków skopiowane z hanzi-writer-data do `strokes/` (format `{s, m}`), `strokes/index.json` ma 361 wpisów, więc service worker wgrywa wszystko z góry (limit `STROKES_PRECACHE` = 600, ok. 1,5 MB).
+- Zdania przykładowe: +109 (łącznie 251); każdy nowy znak ma co najmniej jedno. `node tools/check-data.mjs` przechodzi.
+- Polskie znaczenia HSK 2 są robocze i czekają na przegląd (`znaczenia-hsk2-do-przegladu.csv`).
+- Service worker: `bothanzi-v27`.
+
 ## Zmiany w v0.21
 - **Własna fiszka przez wyszukiwanie**: okno „Dodaj do trudnych” (`formView`) ma pole wyszukiwania w całej bazie (hanzi, pinyin bez tonów, znaczenie PL/EN; `cardResultsHTML`, akcja `cf-toggle`, pole `#cf-q`). Dotknięcie wyniku dodaje znak do trudnych (albo go stamtąd usuwa), okno zostaje otwarte, więc można dodać kilka znaków. Dla słów spoza bazy zostaje rozwijane „Nie ma w bazie? Wpisz ręcznie” (dawny formularz z pinyin, znaczeniami i notatką → `state.custom`).
 - **Wymowa**: przycisk głośnika jest mniejszy (30 px, ikona 16 px) i pojawia się też przy zdaniach przykładowych (lewy górny róg pola zdania, czyta całe zdanie tempem 0,8) w karcie znaku i na odwrocie fiszki.
@@ -141,7 +149,7 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 ## Następne kroki
 0. **Zrobione w v0.16: profile Asia i Kuba** (kod gotowy). Do włączenia synchronizacji trzeba założyć projekt Firebase wg `docs/FIREBASE.md` i wpisać klucze w `js/config.js`. Do rozważenia: powiadomienie „Asia powtórzyła dziś N kart”.
 0b. **Zrobione w v0.14–v0.16: motywy kolorystyczne** (motyw i tryb są w danych profilu). Dziś są dwa tryby (jasny i ciemny) oparte na zmiennych CSS (`--bg`, `--surface`, `--pink`, `--gold` itd.), więc motywy to zestawy tych zmiennych wybierane atrybutem `data-theme`. Do ustalenia: ile motywów i jakie (np. obecny zielono-różowy, nocny granat, ciepły bursztyn), czy motyw jest per profil, czy per urządzenie, oraz czy zmieniają się też hero (góry, słońce) i kafel serii. Wybór zapisany w stanie (`theme`) i w `theme-color` meta.
-1. HSK 2 (161 brakujących znaków), potem poziomy 3–6; przejrzenie polskich znaczeń HSK 1. Zrobione w v0.19: kontrola danych, kreski przy pierwszym użyciu, wymowa, karta „Ostatnie 7 dni”. Zostaje: eksport/import postępu (JSON; projekt: plik z profilem, import scala lub zastępuje po podsumowaniu), przegląd polskich znaczeń HSK 1 (plik CSV do przeglądu).
+1. Zrobione w v0.22: HSK 2. Dalej HSK 3 (brakuje ok. 300 znaków), potem poziomy 4–6; przejrzenie polskich znaczeń HSK 1 i 2. Zrobione w v0.19: kontrola danych, kreski przy pierwszym użyciu, wymowa, karta „Ostatnie 7 dni”. Zostaje: eksport/import postępu (JSON; projekt: plik z profilem, import scala lub zastępuje po podsumowaniu), przegląd polskich znaczeń HSK 1 (plik CSV do przeglądu).
 2. Audio; tryb ćwiczenia rysowania znaku palcem.
 3. Eksport/import postępu (JSON) i ewentualna synchronizacja.
 4. Weryfikacja iOS: instalacja z Safari, ikony, pasek stanu.
