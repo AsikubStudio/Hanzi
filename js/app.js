@@ -1,12 +1,12 @@
 import { BY_HANZI } from './data.js';
 import {
-  state, isKnown, isHard, toggleKnown, toggleHard, addCustom, removeCustom, logReview, logTime, setTheme, setThemeMode, setShowTr, setLearnPref,
+  state, isKnown, isHard, isVHard, setVHard, toggleKnown, toggleHard, addCustom, removeCustom, logReview, logTime, setTheme, setThemeMode, setShowTr, setLearnPref,
   currentId, selectProfile, leaveProfile, profileInfo, setProfileName, setProfileAvatar, hasLegacy, adoptLegacy, dropLegacy, onChange, getSyncCode,
 } from './store.js';
 import { initSync, syncNow, connect, disconnect, newCode, normalizeCode, validCode, prettyCode, getStatus, onStatus } from './sync.js';
 import { fileToAvatar } from './avatar.js';
 import { speak, canSpeak } from './speak.js';
-import { grade, dueDeck, hardDeck, learnDeck, quizDeck } from './srs.js';
+import { grade as gradeRaw, dueDeck, hardDeck, hardCharDeck, vhardDeck, learnDeck, quizDeck } from './srs.js';
 import { search } from './search.js';
 import { gradeAnswer } from './quiz.js';
 import { BY_WORD } from './words.js';
@@ -40,7 +40,7 @@ const ui = {
   knownSearchOpen: false,
   quizSize: '10',
   quizCustom: '15',
-  quizMode: 'text',
+  quizMode: 'text', hardMode: 'cards',
   listenType: 'mix',
   openTiers: new Set(),
   hardLevel: 0,
@@ -145,13 +145,42 @@ function toast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2000);
 }
 
+// Ocena z komunikatem, gdy znak właśnie stał się „bardzo trudnym” (3 błędy z rzędu).
+function grade(key, ok) {
+  if (gradeRaw(key, ok) === 'vhard') toast(`${key} jest teraz bardzo trudny`);
+}
+
 // ——— Arkusz ———
 let lastFocus = null;
+
+// Okienka z polem tekstowym (własna fiszka, liczba znaków, profil, kod parowania) są wyśrodkowane,
+// a warstwa arkusza dopasowuje się do widocznej części ekranu, więc klawiatura telefonu ich nie zasłania.
+const TEXT_INPUT = 'input:not([type=file]):not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea';
+function markDialog() {
+  const box = sheetEl.querySelector('.sheet');
+  if (box) box.classList.toggle('is-dialog', box.matches('.sheet-learn') || Boolean(box.querySelector(TEXT_INPUT)));
+}
+new MutationObserver(markDialog).observe(sheetEl, { childList: true });
+
+const vv = window.visualViewport;
+function fitViewport() {
+  if (!vv || sheetEl.hidden) return;
+  sheetEl.style.top = `${vv.offsetTop}px`;
+  sheetEl.style.height = `${vv.height}px`;
+  sheetEl.style.bottom = 'auto';
+  const f = document.activeElement;
+  if (f && sheetEl.contains(f) && f.matches(TEXT_INPUT)) f.scrollIntoView({ block: 'nearest' });
+}
+vv?.addEventListener('resize', fitViewport);
+vv?.addEventListener('scroll', fitViewport);
+sheetEl.addEventListener('focusin', () => setTimeout(fitViewport, 50));
 
 function openSheet(html) {
   if (sheetEl.hidden) lastFocus = document.activeElement;
   sheetEl.innerHTML = html;
+  markDialog();
   sheetEl.hidden = false;
+  fitViewport();
   requestAnimationFrame(() => sheetEl.classList.add('open'));
   sheetEl.querySelector('input,button.btn')?.focus({ preventScroll: true });
 }
@@ -167,7 +196,7 @@ function closeSheet() {
   let g = null;
   sheetEl.addEventListener('touchstart', (e) => {
     const box = e.target.closest('.sheet');
-    if (!box || e.touches.length !== 1 || matchMedia('(min-width: 900px)').matches) { g = null; return; }
+    if (!box || box.classList.contains('is-dialog') || e.touches.length !== 1 || matchMedia('(min-width: 900px)').matches) { g = null; return; }
     const y = e.touches[0].clientY;
     // Z uchwytu (górny pasek arkusza) przesuwanie działa zawsze, z reszty tylko gdy arkusz jest przewinięty do góry.
     g = { box, y, x: e.touches[0].clientX, t: Date.now(), on: false, top: box.scrollTop <= 0, handle: y - box.getBoundingClientRect().top < 48 };
@@ -373,7 +402,7 @@ function bindCard() {
   };
 
   card.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('[data-act]')) return; // przyciski na karcie (np. tłumaczenie) nie przewracają ani nie przeciągają karty
+    if (e.target.closest('[data-act], .card-words')) return; // przyciski i lista słów na karcie (np. tłumaczenie) nie przewracają ani nie przeciągają karty
     drag = true; moved = false; sx = e.clientX; sy = e.clientY; dx = 0; dy = 0;
     card.setPointerCapture(e.pointerId);
     card.classList.add('dragging');
@@ -406,8 +435,8 @@ function bindCard() {
 // ——— Quiz: pinyin → ton → znaczenie ———
 let Q = null;
 
-function startQuiz(deck, mode = 'text') {
-  if (!deck.length) return toast('Najpierw dodaj znane znaki.');
+function startQuiz(deck, mode = 'text', emptyMsg = 'Najpierw dodaj znane znaki.') {
+  if (!deck.length) return toast(emptyMsg);
   if (mode === 'listen' && !canSpeak) return toast('Ta przeglądarka nie obsługuje czytania na głos.');
   Q = { mode, deck, i: 0, step: 'ask', tone: null, pts: 0, full: 0, miss: [], last: null, done: false, q: null, pad: null };
   openSessionScreen();
@@ -618,6 +647,12 @@ const ACTIONS = {
     toggleKnown(h);
     afterToggle(h, state.known[h] ? `Dodano ${h} do znanych` : `Usunięto ${h} ze znanych`);
   },
+  'toggle-vhard': (el) => {
+    const h = el.dataset.h;
+    const on = !isVHard(h);
+    setVHard(h, on);
+    afterToggle(h, on ? `${h} oznaczono jako bardzo trudny` : `${h} nie jest już bardzo trudny`);
+  },
   'toggle-hard': (el) => {
     const h = el.dataset.h;
     toggleHard(h);
@@ -657,7 +692,17 @@ const ACTIONS = {
     if (ui.hardSearchOpen) $('#hq')?.focus({ preventScroll: true });
   },
   'study-due': () => startSession(dueDeck(), 'Nic do powtórki na dziś.'),
-  'study-hard': () => startSession(hardDeck(), 'Dodaj najpierw trudne fiszki.'),
+  'study-hard': () => {
+    const mode = ui.hardMode || 'cards';
+    if (mode === 'cards') return startSession(hardDeck(), 'Dodaj najpierw trudne fiszki.');
+    startQuiz(hardCharDeck(), mode, 'Dodaj najpierw trudne znaki z bazy.');
+  },
+  'study-vhard': () => {
+    const mode = ui.hardMode || 'cards';
+    if (mode === 'cards') return startSession(vhardDeck(), 'Nie masz bardzo trudnych znaków.');
+    startQuiz(vhardDeck(), mode, 'Nie masz bardzo trudnych znaków.');
+  },
+  'hard-mode': (el) => { ui.hardMode = el.dataset.m; render({ keepScroll: true }); },
   'learn-open': (el) => {
     const lv = Number(el.dataset.lv);
     if (!learnTodo(lv)) return toast('Wszystkie znaki z tego poziomu już znasz.');

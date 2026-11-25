@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.24)
+# BotHanzi: architektura (v0.26)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -8,7 +8,7 @@
 
 ## Model danych
 Znak: `{ hanzi, pinyin (z tonami), hsk (1–7), en, pl }`; znaczenia rozdzielone średnikiem.
-Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,hanzi,pinyin,en,pl,note}]`, `srs{key:{box,due}}`, `activity{date:n}`, `log{date:{r,g,ok,t}}`, `theme`, `themeMode`, `showTr`, `learnPref{size:'5'|'10'|'15'|'custom',custom}`.
+Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `vhard[hanzi]` (podzbiór hard), `missRun{hanzi:n}`, `custom[{id,hanzi,pinyin,en,pl,note}]`, `srs{key:{box,due}}`, `activity{date:n}`, `log{date:{r,g,ok,t}}`, `theme`, `themeMode`, `showTr`, `learnPref{size:'5'|'10'|'15'|'custom',custom}`.
 
 ## Zachowanie
 - Odblokowanie poziomu: poprzedni poziom opanowany w ≥ 50% (miękka blokada, podgląd zawsze możliwy).
@@ -83,6 +83,21 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `custom[{id,ha
 - Mikro-akcent złota (`--gold`, `#d9b36c`): nazwa rangi w hero oraz pełny pasek poziomu HSK (`.bar.full`).
 - Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
 - `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
+
+## Zmiany w v0.26 (bardzo trudne)
+- **Bardzo trudne** (`state.vhard`, podzbiór `state.hard`): oznaczane przyciskiem „Bardzo trudny” w karcie znaku (`toggle-vhard`, `setVHard`; dodanie oznacza też jako trudny) albo automatycznie po 3 błędach z rzędu (`VHARD_RUN`, licznik `state.missRun`, liczony w `grade()` we wszystkich ćwiczeniach z oceną; dobra odpowiedź zeruje licznik, komunikat „X jest teraz bardzo trudny”). Usunięcie z trudnych zdejmuje też „bardzo trudny”. Synchronizacja: suma, ograniczona do trudnych.
+- Bez osobnego treningu: bardzo trudne są w siatce Trudnych (na początku) i zawsze wchodzą do „Ćwicz trudne” (we wszystkich trybach).
+- Wygląd (`glowOf` w ui.js): karmazynowy żar (pulsująca, nieregularna aura, czerwona ramka, unoszące się iskry `.ember-up`), bez białych błysków; na kafelku i fiszce. Znak mityczny zachowuje swoją poświatę, a „bardzo trudny” pokazuje karmazynowy znaczek w rogu (`.vh-badge`).
+- Usunięte opisy pod chipami w „Odpytaj się” i „Ćwicz trudne”, podpowiedź w oknie „Dodaj do trudnych” oraz opis „Własne fiszki”. Awatary na fiszce przeniesione do lewego górnego rogu (nie nachodzą na znak po rozwinięciu słów).
+- v0.26.1: w panelu „Ćwicz trudne” drugi przycisk „Ćwicz b. trudne (N)” (akcja `study-vhard`, talia `vhardDeck()`), działa we wszystkich trzech trybach; oba przyciski w tym samym stylu (btn primary), w dwóch równych kolumnach, napisy niezależne od trybu (tryb widać na chipie).
+- SW `bothanzi-v33` (v0.26: v31).
+
+## Zmiany w v0.25 (trudne ze słuchu i pisania, słowa na fiszce, okienka nad klawiaturą, znaki mityczne)
+- **Ćwicz trudne**: przełącznik Fiszki / Ze słuchu / Pisanie (`ui.hardMode`, akcja `hard-mode`). Słuch i pisanie używają `hardCharDeck()` (srs.js): trudne znaki z bazy plus własne fiszki, których znak jest w bazie; własne fiszki spoza bazy są pomijane (brak głosu, dystraktorów i kresek). Quiz startuje przez `startQuiz(deck, mode, emptyMsg)`; w podsumowaniu „Dodaj błędne do trudnych” pojawia się tylko, gdy któryś błędny znak nie jest jeszcze trudny.
+- **Słowa na fiszce**: `cardWordsHTML(hanzi)` w `sessionView`, `<details class="card-words">` domyślnie zwinięte, max 6 słów. Dotknięcie listy nie przewraca ani nie przeciąga karty (`bindCard` pomija `.card-words`). Po rozwinięciu znak maleje, a zdanie przykładowe się chowa (`:has`).
+- **Okienka nad klawiaturą**: arkusz z polem tekstowym (oraz `.sheet-learn`) dostaje klasę `is-dialog` (`markDialog`, MutationObserver na `#sheet`) i jest wyśrodkowany. Warstwa `#sheet` dopasowuje `top`/`height` do `visualViewport` (`fitViewport`), więc środek liczy się bez klawiatury; pole w fokusie jest przewijane do widoku. Okienek-dialogów nie zamyka się przesunięciem w dół (Esc, tło albo przycisk).
+- **Znaki mityczne**: `MYTHIC = {足, 脚, 鹿}` (ui.js). Kafelek i fiszka dostają klasę `mythic`: obracająca się opalizująca obwódka (`@property --ang`, conic-gradient), opalizujący znak (gradient w tekście), pulsująca złota aura i iskry (`.spark`). W motywach jasnych barwy są przyciemnione (`:root[data-theme$="-light"]`). `prefers-reduced-motion` wyłącza animacje i iskry.
+- SW `bothanzi-v30`.
 
 ## Zmiany w v0.24 (słowa, quiz ze słuchu, pisanie znaku)
 - **Słowa** (`js/words.js`): 634 słowa wieloznakowe z list HSK 3.0 poziomów 1–3 (157 / 116 / 361), rekord `[słowo, pinyin bez spacji, poziom, EN, PL]`; znaczenia pisane ręcznie (źródłowy słownik ma błędy, np. 告诉, 东西), do przeglądu w `znaczenia-do-przegladu-slowa.csv`. `searchWords(q)` szuka po znakach, pinyin bez tonów (całe słowo: „kafei”, „mianbao”) i znaczeniach PL/EN; `wordsWith(znak)` daje słowa zawierające znak. UI: wyniki wyszukiwania mają sekcję „Słowa (N)” pod znakami, karta znaku ma „Słowa z tym znakiem” (do 8), a dotknięcie słowa otwiera kartę słowa (`wordSheetView`: duże słowo, pinyin, głośnik, znaczenia, kafelki znaków). Słowa nie mają własnego stanu (ani znane, ani SRS), więc nic nie dochodzi do synchronizacji.

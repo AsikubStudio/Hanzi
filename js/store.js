@@ -1,6 +1,8 @@
 // Stan aplikacji w localStorage. Jedno źródło prawdy: `state`.
 // known:    { [hanzi]: timestamp }              znaki opanowane
 // hard:     [hanzi]                              znaki z bazy dodane do „trudnych”
+// vhard:    [hanzi]                              „bardzo trudne”: podzbiór trudnych (ręcznie albo po 3 błędach z rzędu)
+// missRun:  { [hanzi]: błędy z rzędu }          licznik do automatycznego „bardzo trudnego”
 // custom:   [{ id, hanzi, pinyin, en, pl, note }] własne fiszki
 // srs:      { [key]: { box, due } }              powtórki (key = hanzi lub „c:<id>”)
 // activity: { 'YYYY-MM-DD': liczba ocenionych kart }
@@ -27,7 +29,7 @@ const LAST_KEY = 'bothanzi:last';
 export const PROFILE_IDS = ['asia', 'kuba'];
 const NAMES = { asia: 'Asia', kuba: 'Kuba' };
 
-const defaults = () => ({ known: {}, hard: [], custom: [], srs: {}, activity: {}, log: {}, theme: 'las', themeMode: null, showTr: false, learnPref: { size: '10', custom: 12 } });
+const defaults = () => ({ known: {}, hard: [], vhard: [], missRun: {}, custom: [], srs: {}, activity: {}, log: {}, theme: 'las', themeMode: null, showTr: false, learnPref: { size: '10', custom: 12 } });
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const emptyRec = (id) => ({ name: NAMES[id], avatar: null, state: defaults(), ts: 0, base: 0 });
 const hasProgress = (s) => Boolean(s && (Object.keys(s.known || {}).length || (s.custom || []).length || Object.keys(s.activity || {}).length || (s.hard || []).length));
@@ -160,6 +162,7 @@ export function mergeState(a, b, tsA, tsB) {
   out.known = { ...(b.known || {}), ...(a.known || {}) };
   for (const h of Object.keys(out.known)) out.known[h] = Math.max(a.known?.[h] || 0, b.known?.[h] || 0);
   out.hard = [...new Set([...(a.hard || []), ...(b.hard || [])])];
+  out.vhard = [...new Set([...(a.vhard || []), ...(b.vhard || [])])].filter((h) => out.hard.includes(h));
   const ids = new Set();
   out.custom = [...(a.custom || []), ...(b.custom || [])].filter((c) => !ids.has(c.id) && ids.add(c.id));
   out.srs = { ...(b.srs || {}), ...(a.srs || {}) };
@@ -232,7 +235,25 @@ export function toggleKnown(h) {
 }
 
 export function toggleHard(h) {
-  state.hard = isHard(h) ? state.hard.filter((x) => x !== h) : [...state.hard, h];
+  if (isHard(h)) {
+    state.hard = state.hard.filter((x) => x !== h);
+    state.vhard = state.vhard.filter((x) => x !== h); // bez trudnego nie ma bardzo trudnego
+  } else {
+    state.hard = [...state.hard, h];
+  }
+  save();
+}
+
+// „Bardzo trudny” zawsze jest też trudny (dodanie oznacza oba). Zdjęcie zostawia znak w trudnych i zeruje licznik błędów.
+export function isVHard(h) { return state.vhard.includes(h); }
+export function setVHard(h, on) {
+  if (on) {
+    if (!isHard(h)) state.hard = [...state.hard, h];
+    if (!isVHard(h)) state.vhard = [...state.vhard, h];
+  } else {
+    state.vhard = state.vhard.filter((x) => x !== h);
+    delete state.missRun[h];
+  }
   save();
 }
 

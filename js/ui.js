@@ -1,9 +1,9 @@
 // Widoki jako funkcje zwracające HTML. Zdarzenia obsługuje app.js (delegacja po data-act).
 import { CHARS, LEVELS, BY_HANZI } from './data.js';
-import { state, isKnown, isHard, streak, dayStamp, dayStats, overallStats, profileInfo, profileList, whoHas, knownCountOf, hasLegacy, legacyCount, currentId, streakOf, activeTodayOf, peerState, PROFILE_IDS } from './store.js';
+import { state, isKnown, isHard, isVHard, streak, dayStamp, dayStats, overallStats, profileInfo, profileList, whoHas, knownCountOf, hasLegacy, legacyCount, currentId, streakOf, activeTodayOf, peerState, PROFILE_IDS } from './store.js';
 import { canSpeak } from './speak.js';
 import { syncConfigured, prettyCode } from './sync.js';
-import { dueDeck, knownCount, hardCount, customAsItems } from './srs.js';
+import { dueDeck, knownCount, hardCount, hardCharDeck, vhardDeck, customAsItems } from './srs.js';
 import { search } from './search.js';
 import { wordsWith, searchWords } from './words.js';
 import { PASS } from './write.js';
@@ -135,10 +135,24 @@ function forestSVG(known) {
 const chip = (label, active, act, data = '') =>
   `<button class="chip" type="button" data-act="${act}" ${data} aria-pressed="${active}">${label}</button>`;
 
-const tile = (c, locked = false) =>
-  `<button class="tile${isHard(c.hanzi) ? ' is-hard' : isKnown(c.hanzi) ? ' is-known' : ''}${locked ? ' is-locked' : ''}" type="button" data-act="open" data-h="${esc(c.hanzi)}">
-    <span class="hz">${esc(c.hanzi)}</span><span class="py">${esc(c.pinyin)}</span>
+// Znaki „mityczne” (stopa, jeleń): opalizująca obwódka, złota aura i iskry na kafelku i fiszce.
+export const MYTHIC = new Set(['足', '脚', '鹿']);
+const sparks = (n) => Array.from({ length: n }, (_, i) => `<i class="spark s${i + 1}" aria-hidden="true"></i>`).join('');
+// „Bardzo trudne”: karmazynowy żar z iskrami. Znak mityczny zachowuje swoją poświatę i dostaje tylko znaczek w rogu.
+const embers = (n) => Array.from({ length: n }, (_, i) => `<i class="ember-up e${i + 1}" aria-hidden="true"></i>`).join('');
+export function glowOf(h, n) {
+  const vh = isVHard(h);
+  if (MYTHIC.has(h)) return { cls: ' mythic', html: sparks(n) + (vh ? '<i class="vh-badge" aria-hidden="true"></i>' : '') };
+  if (vh) return { cls: ' vhard', html: embers(n + 1) };
+  return { cls: '', html: '' };
+}
+
+const tile = (c, locked = false) => {
+  const g = glowOf(c.hanzi, 2);
+  return `<button class="tile${isHard(c.hanzi) ? ' is-hard' : isKnown(c.hanzi) ? ' is-known' : ''}${locked ? ' is-locked' : ''}${g.cls}" type="button" data-act="open" data-h="${esc(c.hanzi)}"${isVHard(c.hanzi) ? ' aria-description="bardzo trudny"' : ''}>
+    <span class="hz">${esc(c.hanzi)}</span><span class="py">${esc(c.pinyin)}</span>${g.html}
   </button>`;
+};
 
 const header = (title, right = '') => `<header class="top"><h1>${title}</h1><div class="top-actions">${right}</div></header>`;
 
@@ -371,11 +385,6 @@ export function homeView(ui) {
 // ——— Znane ———
 export const QUIZ_SIZES = ['10', '30', '50', 'custom'];
 export const QUIZ_MODES = [['text', 'Pisemny'], ['listen', 'Ze słuchu'], ['write', 'Pisanie']];
-const QUIZ_HINT = {
-  text: 'Podaj pinyin, ton i znaczenie znaków, które już znasz.',
-  listen: 'Posłuchaj znaku i wybierz pinyin z tonem, znak albo znaczenie.',
-  write: 'Zobaczysz pinyin i znaczenie, a znak napiszesz palcem. Liczy się ogólny kształt, nie kolejność kresek.',
-};
 const QUIZ_START = { text: 'Zacznij quiz', listen: 'Zacznij słuchanie', write: 'Zacznij pisanie' };
 const LISTEN_CHIPS = [['mix', 'Mieszane'], ['py', 'Pinyin'], ['hz', 'Znak'], ['pl', 'Znaczenie']];
 
@@ -420,7 +429,6 @@ export function knownView(ui) {
     <section class="panel quiz-setup">
       <h2>Odpytaj się</h2>
       <div class="chips" role="group" aria-label="Rodzaj quizu">${QUIZ_MODES.map(([m, l]) => chip(l, ui.quizMode === m, 'quiz-mode', `data-m="${m}"`)).join('')}</div>
-      <p class="muted">${QUIZ_HINT[ui.quizMode]}</p>
       ${ui.quizMode === 'listen' ? `<div class="chips" role="group" aria-label="Rodzaj pytań">${LISTEN_CHIPS.map(([m, l]) => chip(l, ui.listenType === m, 'listen-type', `data-m="${m}"`)).join('')}</div>` : ''}
       <div class="chips" role="group" aria-label="Liczba znaków w quizie">${sizeChips}</div>
       ${ui.quizSize === 'custom' ? `<label class="num">Liczba znaków (1–${kc})
@@ -437,16 +445,22 @@ export function hardGridHTML(ui) {
     ? search(ui.hardQuery).filter((c) => isHard(c.hanzi))
     : CHARS.filter((c) => isHard(c.hanzi));
   if (ui.hardLevel) list = list.filter((c) => c.hsk === ui.hardLevel);
+  list = [...list.filter((c) => isVHard(c.hanzi)), ...list.filter((c) => !isVHard(c.hanzi))]; // bardzo trudne na początku
   if (!list.length) {
     return `<div class="empty small"><p>${ui.hardQuery.trim() ? `Wśród trudnych nie ma wyników dla „${esc(ui.hardQuery)}”.` : 'Brak trudnych znaków na tym poziomie.'}</p></div>`;
   }
   return `<div class="grid">${list.map((c) => tile(c)).join('')}</div>`;
 }
 
+export const HARD_MODES = [['cards', 'Fiszki'], ['listen', 'Ze słuchu'], ['write', 'Pisanie']];
+const VHARD_START = { cards: 'Ćwicz b. trudne', listen: 'Ćwicz b. trudne', write: 'Ćwicz b. trudne' };
+const HARD_START = { cards: 'Ćwicz trudne', listen: 'Ćwicz trudne', write: 'Ćwicz trudne' }; // tryb widać na chipie
+
 export function hardView(ui) {
   const hardChars = CHARS.filter((c) => isHard(c.hanzi));
-  const total = hardCount(); // trudne znaki + własne fiszki
   const custom = customAsItems();
+  const mode = ui.hardMode || 'cards';
+  const total = mode === 'cards' ? hardCount() : hardCharDeck().length; // fiszki: trudne + własne; słuch/pisanie: tylko znaki z bazy
   const levels = LEVELS.filter((l) => hardChars.some((c) => c.hsk === l.n));
   const chips = [chip('Wszystkie', !ui.hardLevel, 'hard-level', 'data-lv="0"'),
     ...levels.map((l) => chip(l.label, ui.hardLevel === l.n, 'hard-level', `data-lv="${l.n}"`))].join('');
@@ -459,17 +473,17 @@ export function hardView(ui) {
     ${ui.hardSearchOpen && hardChars.length ? `<div class="searchbox inline">${ICONS.search}
       <input id="hq" type="search" inputmode="search" autocomplete="off" autocapitalize="off" spellcheck="false"
         placeholder="Szukaj wśród trudnych" value="${esc(ui.hardQuery)}" aria-label="Szukaj wśród trudnych znaków"></div>` : ''}
-    <section class="panel">
+    <section class="panel quiz-setup">
       <h2>Ćwicz trudne</h2>
-      <p class="muted">Fiszki z oznaczonych jako trudne${custom.length ? ' i z Twoich własnych kart' : ''}. Przesuń w prawo, gdy już pamiętasz, w lewo, gdy nie.</p>
-      <div class="btn-row"><button class="btn primary" type="button" data-act="study-hard" ${total ? '' : 'disabled'}>${total ? `Ćwicz trudne (${total})` : 'Brak trudnych znaków'}</button></div>
+      <div class="chips" role="group" aria-label="Rodzaj ćwiczenia">${HARD_MODES.map(([m, l]) => chip(l, mode === m, 'hard-mode', `data-m="${m}"`)).join('')}</div>
+      ${mode === 'listen' ? `<div class="chips" role="group" aria-label="Rodzaj pytań">${LISTEN_CHIPS.map(([m, l]) => chip(l, ui.listenType === m, 'listen-type', `data-m="${m}"`)).join('')}</div>` : ''}
+      <div class="btn-row"><button class="btn primary" type="button" data-act="study-hard" ${total ? '' : 'disabled'}>${total ? `${HARD_START[mode]} (${total})` : 'Brak trudnych znaków'}</button>${vhardDeck().length ? `<button class="btn primary vh-btn" type="button" data-act="study-vhard">${VHARD_START[mode]} (${vhardDeck().length})</button>` : ''}</div>
     </section>
     ${hardChars.length
       ? `<div class="chips" role="group" aria-label="Filtr poziomu">${chips}</div><div id="hard-grid">${hardGridHTML(ui)}</div>`
       : '<div class="empty small"><p>Tu pojawią się znaki, które sprawiają Ci kłopot. Otwórz dowolny znak i wybierz „Dodaj do trudnych”.</p></div>'}
     <section class="panel">
       <h2>Własne fiszki</h2>
-      <p class="muted">Własne karty trafiają do ćwiczenia razem z trudnymi znakami.</p>
       ${custom.length ? `<ul class="rows">${customList}</ul>` : ''}
       <div class="btn-row"><button class="btn" type="button" data-act="new-card">${ICONS.plus}Własna fiszka</button></div>
     </section>`;
@@ -754,13 +768,14 @@ export function sheetView(c) {
       <div class="btn-col">
         <button class="btn primary" data-act="toggle-known" data-h="${esc(c.hanzi)}">${known ? 'Usuń ze znanych' : 'Oznacz jako znany'}</button>
         <button class="btn" data-act="toggle-hard" data-h="${esc(c.hanzi)}">${hard ? 'Usuń z trudnych' : 'Dodaj do trudnych'}</button>
+        <button class="btn${isVHard(c.hanzi) ? ' vh-on' : ''}" data-act="toggle-vhard" data-h="${esc(c.hanzi)}">${isVHard(c.hanzi) ? 'Już nie bardzo trudny' : 'Bardzo trudny'}</button>
       </div>
     </section>`;
 }
 
 // Wyniki wyszukiwania w oknie „Własna fiszka”: dotknięcie dodaje znak do trudnych (albo go stamtąd usuwa).
 export function cardResultsHTML(q) {
-  if (!q.trim()) return '<p class="muted">Wpisz znak, pinyin bez tonów albo znaczenie (po polsku lub angielsku).</p>';
+  if (!q.trim()) return '';
   const list = search(q).slice(0, 8);
   if (!list.length) return '<p class="muted">Nie ma takiego znaku w bazie. Wpisz go ręcznie poniżej.</p>';
   return `<ul class="rows">${list.map((c) => {
@@ -792,6 +807,16 @@ export function formView() {
     </form>`;
 }
 
+// Zwijana lista słów na odkrytej fiszce (domyślnie zwinięta, żeby nie zdradzać i nie zasłaniać karty).
+const CARD_WORDS = 6;
+export function cardWordsHTML(hanzi) {
+  const list = wordsWith(hanzi);
+  if (!list.length) return '';
+  return `<details class="card-words"><summary>Słowa z tym znakiem (${list.length})</summary>
+    <ul>${list.slice(0, CARD_WORDS).map((x) => `<li><span class="cw-hz" lang="zh">${esc(x.w)}</span><span class="cw-py">${esc(x.pinyin)}</span><span class="cw-pl">${esc(x.pl)}</span></li>`).join('')}</ul>
+    ${list.length > CARD_WORDS ? `<p class="cw-more">i ${list.length - CARD_WORDS} więcej w karcie znaku</p>` : ''}</details>`;
+}
+
 // ——— Sesja fiszek ———
 const MODES = {
   review: { left: 'Jeszcze raz', tip: 'Przesuń w prawo, gdy znasz, w lewo, gdy nie, w górę, żeby pominąć.' },
@@ -808,7 +833,8 @@ export function sessionView(S) {
       <span class="session-n">${S.i + 1}/${S.deck.length}</span>
     </div>
     <div class="stage">
-      <div class="card${S.flipped ? ' is-flipped' : ''}" id="card" tabindex="0" aria-label="Fiszka. Dotknij, aby odkryć odpowiedź.">
+      <div class="card${S.flipped ? ' is-flipped' : ''}${glowOf(c.hanzi, 4).cls}" id="card" tabindex="0" aria-label="Fiszka. Dotknij, aby odkryć odpowiedź.">
+        ${glowOf(c.hanzi, 4).html}
         <div class="card-hz" lang="zh">${esc(c.hanzi)}</div>
         <div class="card-back">
           <p class="card-py">${esc(c.pinyin)}${speakBtn(c.hanzi)}</p>
@@ -816,6 +842,7 @@ export function sessionView(S) {
           <p class="card-en">${esc(c.en)}</p>
           ${c.note ? `<p class="card-note">${esc(c.note)}</p>` : ''}
           ${c.key.startsWith('c:') ? '' : sentenceHTML(c.hanzi)}
+          ${c.key.startsWith('c:') ? '' : cardWordsHTML(c.hanzi)}
         </div>
         ${whoHTML(c.hanzi, 'card-who')}
         <p class="card-hint">Dotknij, aby odkryć</p>
@@ -914,7 +941,7 @@ export function quizSummaryView(Q) {
       ${text ? `<p class="summary-line">Punkty: ${Q.pts} z ${max}</p>` : ''}
       ${Q.miss.length ? `<ul class="miss-list" aria-label="Znaki do powtórki">${Q.miss.map((c) => `<li><span class="hz-sm" lang="zh">${esc(c.hanzi)}</span><span>${esc(c.pinyin)}</span></li>`).join('')}</ul>` : ''}
       <div class="btn-col">
-        ${Q.miss.length ? '<button class="btn primary" data-act="quiz-retry">Powtórz błędne</button><button class="btn" data-act="quiz-to-hard">Dodaj błędne do trudnych</button>' : ''}
+        ${Q.miss.length ? `<button class="btn primary" data-act="quiz-retry">Powtórz błędne</button>${Q.miss.some((c) => !isHard(c.hanzi)) ? '<button class="btn" data-act="quiz-to-hard">Dodaj błędne do trudnych</button>' : ''}` : ''}
         <button class="btn ${Q.miss.length ? '' : 'primary'}" data-act="end-session">Zamknij</button>
       </div>
     </div>`;
