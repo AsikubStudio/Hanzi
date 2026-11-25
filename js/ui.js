@@ -453,6 +453,14 @@ export function hardGridHTML(ui) {
 }
 
 export const HARD_MODES = [['cards', 'Fiszki'], ['listen', 'Ze słuchu'], ['write', 'Pisanie']];
+// Liczba kart w ćwiczeniu trudnych: Wszystkie / 10 / 30 / 50 / Własna (jak w „Odpytaj się”).
+export const HARD_SIZES = ['all', '10', '30', '50', 'custom'];
+export function hardCap(ui, n) {
+  if (!n || ui.hardSize === 'all') return n;
+  const k = ui.hardSize === 'custom' ? Math.max(1, parseInt(ui.hardCustom, 10) || 1) : Number(ui.hardSize);
+  return Math.min(n, k);
+}
+export const hardLabel = (ui, vh, n) => `${vh ? 'Ćwicz b. trudne' : 'Ćwicz trudne'} (${hardCap(ui, n)})`;
 const VHARD_START = { cards: 'Ćwicz b. trudne', listen: 'Ćwicz b. trudne', write: 'Ćwicz b. trudne' };
 const HARD_START = { cards: 'Ćwicz trudne', listen: 'Ćwicz trudne', write: 'Ćwicz trudne' }; // tryb widać na chipie
 
@@ -477,7 +485,10 @@ export function hardView(ui) {
       <h2>Ćwicz trudne</h2>
       <div class="chips" role="group" aria-label="Rodzaj ćwiczenia">${HARD_MODES.map(([m, l]) => chip(l, mode === m, 'hard-mode', `data-m="${m}"`)).join('')}</div>
       ${mode === 'listen' ? `<div class="chips" role="group" aria-label="Rodzaj pytań">${LISTEN_CHIPS.map(([m, l]) => chip(l, ui.listenType === m, 'listen-type', `data-m="${m}"`)).join('')}</div>` : ''}
-      <div class="btn-row"><button class="btn primary" type="button" data-act="study-hard" ${total ? '' : 'disabled'}>${total ? `${HARD_START[mode]} (${total})` : 'Brak trudnych znaków'}</button>${vhardDeck().length ? `<button class="btn primary vh-btn" type="button" data-act="study-vhard">${VHARD_START[mode]} (${vhardDeck().length})</button>` : ''}</div>
+      <div class="chips" role="group" aria-label="Liczba kart">${HARD_SIZES.map((n) => chip(n === 'all' ? 'Wszystkie' : n === 'custom' ? 'Własna' : n, ui.hardSize === n, 'hard-size', `data-n="${n}"`)).join('')}</div>
+      ${ui.hardSize === 'custom' ? `<label class="num">Liczba kart (1–${total})
+        <input id="hard-n" type="number" inputmode="numeric" min="1" max="${total}" value="${esc(ui.hardCustom)}"></label>` : ''}
+      <div class="btn-row"><button class="btn primary" type="button" data-act="study-hard" ${total ? '' : 'disabled'}>${total ? hardLabel(ui, false, total) : 'Brak trudnych znaków'}</button>${vhardDeck().length ? `<button class="btn primary vh-btn" type="button" data-act="study-vhard">${hardLabel(ui, true, vhardDeck().length)}</button>` : ''}</div>
     </section>
     ${hardChars.length
       ? `<div class="chips" role="group" aria-label="Filtr poziomu">${chips}</div><div id="hard-grid">${hardGridHTML(ui)}</div>`

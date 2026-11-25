@@ -6,7 +6,7 @@ import {
 import { initSync, syncNow, connect, disconnect, newCode, normalizeCode, validCode, prettyCode, getStatus, onStatus } from './sync.js';
 import { fileToAvatar } from './avatar.js';
 import { speak, canSpeak } from './speak.js';
-import { grade as gradeRaw, dueDeck, hardDeck, hardCharDeck, vhardDeck, learnDeck, quizDeck } from './srs.js';
+import { grade as gradeRaw, shuffle, dueDeck, hardDeck, hardCharDeck, vhardDeck, learnDeck, quizDeck } from './srs.js';
 import { search } from './search.js';
 import { gradeAnswer } from './quiz.js';
 import { BY_WORD } from './words.js';
@@ -16,7 +16,7 @@ import { loadStrokes } from './strokes.js';
 import { normalizeTheme, themeAttr, themeMeta, effectiveMode } from './themes.js';
 import { mountStrokes } from './strokes.js';
 import {
-  tabbarHTML, homeView, knownView, hardView, cardResultsHTML, tierBodyHTML, resultsHTML, knownGridHTML, hardGridHTML, quizCount, learnSheetView, learnCount, learnTodo,
+  tabbarHTML, homeView, knownView, hardView, cardResultsHTML, tierBodyHTML, resultsHTML, knownGridHTML, hardGridHTML, hardCap, hardLabel, quizCount, learnSheetView, learnCount, learnTodo,
   sheetView, wordSheetView, formView, listenView, writeView, themeSheetView, avatarHTML, profilePickerView, profileSheetView, syncSheetView, dayDetail, setStatsOpen, sessionView, summaryView, quizAskView, quizResultView, quizSummaryView,
 } from './ui.js';
 
@@ -40,7 +40,7 @@ const ui = {
   knownSearchOpen: false,
   quizSize: '10',
   quizCustom: '15',
-  quizMode: 'text', hardMode: 'cards',
+  quizMode: 'text', hardMode: 'cards', hardSize: 'all', hardCustom: '10',
   listenType: 'mix',
   openTiers: new Set(),
   hardLevel: 0,
@@ -148,6 +148,15 @@ function toast(msg) {
 // Ocena z komunikatem, gdy znak właśnie stał się „bardzo trudnym” (3 błędy z rzędu).
 function grade(key, ok) {
   if (gradeRaw(key, ok) === 'vhard') toast(`${key} jest teraz bardzo trudny`);
+}
+
+// Przycięcie talii trudnych do wybranej liczby; bardzo trudne mają pierwszeństwo, potem talia jest tasowana.
+function capHard(deck) {
+  const k = hardCap(ui, deck.length);
+  if (k >= deck.length) return deck;
+  const vh = deck.filter((c) => isVHard(c.hanzi));
+  const rest = deck.filter((c) => !isVHard(c.hanzi));
+  return shuffle([...vh, ...rest].slice(0, k));
 }
 
 // ——— Arkusz ———
@@ -694,14 +703,17 @@ const ACTIONS = {
   'study-due': () => startSession(dueDeck(), 'Nic do powtórki na dziś.'),
   'study-hard': () => {
     const mode = ui.hardMode || 'cards';
-    if (mode === 'cards') return startSession(hardDeck(), 'Dodaj najpierw trudne fiszki.');
-    startQuiz(hardCharDeck(), mode, 'Dodaj najpierw trudne znaki z bazy.');
+    const deck = capHard(mode === 'cards' ? hardDeck() : hardCharDeck());
+    if (mode === 'cards') return startSession(deck, 'Dodaj najpierw trudne fiszki.');
+    startQuiz(deck, mode, 'Dodaj najpierw trudne znaki z bazy.');
   },
   'study-vhard': () => {
     const mode = ui.hardMode || 'cards';
-    if (mode === 'cards') return startSession(vhardDeck(), 'Nie masz bardzo trudnych znaków.');
-    startQuiz(vhardDeck(), mode, 'Nie masz bardzo trudnych znaków.');
+    const deck = capHard(vhardDeck());
+    if (mode === 'cards') return startSession(deck, 'Nie masz bardzo trudnych znaków.');
+    startQuiz(deck, mode, 'Nie masz bardzo trudnych znaków.');
   },
+  'hard-size': (el) => { ui.hardSize = el.dataset.n; render({ keepScroll: true }); if (ui.hardSize === 'custom') $('#hard-n')?.focus({ preventScroll: true }); },
   'hard-mode': (el) => { ui.hardMode = el.dataset.m; render({ keepScroll: true }); },
   'learn-open': (el) => {
     const lv = Number(el.dataset.lv);
@@ -804,6 +816,11 @@ document.addEventListener('input', (e) => {
     setLearnPref({ custom: e.target.value });
     const go = $('#learn-go');
     if (go) go.textContent = `Zacznij (${learnCount(Number(go.dataset.lv))})`;
+  } else if (id === 'hard-n') {
+    ui.hardCustom = e.target.value;
+    const a = $('[data-act="study-hard"]'), b = $('[data-act="study-vhard"]');
+    if (a && !a.disabled) a.textContent = hardLabel(ui, false, Number(e.target.max));
+    if (b) b.textContent = hardLabel(ui, true, vhardDeck().length);
   } else if (id === 'quiz-n') {
     ui.quizCustom = e.target.value;
     const btn = $('[data-act="start-quiz"]');

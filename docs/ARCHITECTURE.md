@@ -90,7 +90,8 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `vhard[hanzi]`
 - Wygląd (`glowOf` w ui.js): karmazynowy żar (pulsująca, nieregularna aura, czerwona ramka, unoszące się iskry `.ember-up`), bez białych błysków; na kafelku i fiszce. Znak mityczny zachowuje swoją poświatę, a „bardzo trudny” pokazuje karmazynowy znaczek w rogu (`.vh-badge`).
 - Usunięte opisy pod chipami w „Odpytaj się” i „Ćwicz trudne”, podpowiedź w oknie „Dodaj do trudnych” oraz opis „Własne fiszki”. Awatary na fiszce przeniesione do lewego górnego rogu (nie nachodzą na znak po rozwinięciu słów).
 - v0.26.1: w panelu „Ćwicz trudne” drugi przycisk „Ćwicz b. trudne (N)” (akcja `study-vhard`, talia `vhardDeck()`), działa we wszystkich trzech trybach; oba przyciski w tym samym stylu (btn primary), w dwóch równych kolumnach, napisy niezależne od trybu (tryb widać na chipie).
-- SW `bothanzi-v33` (v0.26: v31).
+- v0.26.3: w panelu „Ćwicz trudne” wybór liczby kart Wszystkie / 10 / 30 / 50 / Własna (`ui.hardSize`, `ui.hardCustom`, pole `#hard-n`, `hardCap`, `hardLabel`); dotyczy obu przycisków i wszystkich trybów. Przy przycięciu talii bardzo trudne mają pierwszeństwo (`capHard` w app.js), potem tasowanie. Domyślnie „Wszystkie”.
+- SW `bothanzi-v34` (v0.26: v31).
 
 ## Zmiany w v0.25 (trudne ze słuchu i pisania, słowa na fiszce, okienka nad klawiaturą, znaki mityczne)
 - **Ćwicz trudne**: przełącznik Fiszki / Ze słuchu / Pisanie (`ui.hardMode`, akcja `hard-mode`). Słuch i pisanie używają `hardCharDeck()` (srs.js): trudne znaki z bazy plus własne fiszki, których znak jest w bazie; własne fiszki spoza bazy są pomijane (brak głosu, dystraktorów i kresek). Quiz startuje przez `startQuiz(deck, mode, emptyMsg)`; w podsumowaniu „Dodaj błędne do trudnych” pojawia się tylko, gdy któryś błędny znak nie jest jeszcze trudny.
