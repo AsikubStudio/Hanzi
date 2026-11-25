@@ -1,4 +1,4 @@
-# BotHanzi: architektura (v0.26)
+# BotHanzi: architektura (v0.27)
 
 ## Decyzje
 - Stos: vanilla JS (ES modules) + CSS, bez buildu. Hosting statyczny z HTTPS, pełne PWA.
@@ -83,6 +83,11 @@ Stan jednego profilu (`state`): `known{hanzi:ts}`, `hard[hanzi]`, `vhard[hanzi]`
 - Mikro-akcent złota (`--gold`, `#d9b36c`): nazwa rangi w hero oraz pełny pasek poziomu HSK (`.bar.full`).
 - Puste tory pasków postępu: `--track` (`#264238` w ciemnym motywie). Nieaktywne lampiony mają jaśniejszy obrys (`#6f9f8a`) i żebra, żeby były widoczne na zielonym i śliwkowym tle.
 - `theme-color` w ciemnym motywie: `#0c1713`. Service worker: `bothanzi-v13`.
+
+## Zmiany w v0.27 (automatyczne czytanie, niespodzianki)
+- **Automatyczne czytanie** (`sayOnce` w app.js, bez komunikatów o braku głosu): przy pierwszym odkryciu fiszki (raz na kartę, `S.said`; ponowne obrócenie nie czyta), przy otwarciu karty znaku z siatki lub wyszukiwarki (`openChar(h, true)`; odświeżenie arkusza po zmianie znany/trudny nie czyta) i karty słowa, na ekranie wyniku quizu pisemnego oraz pisania (także „Nie pamiętam”). Quiz ze słuchu czytał już wcześniej.
+- **Niespodzianki** (`maybeEgg`, tylko profil `asia`): przy odkryciu odpowiedzi (fiszki: pierwsze obrócenie; quizy: ekran wyniku w pisemnym, ze słuchu i pisaniu) losowanie raz na kartę: „STOPY” 3,5% na 0,36 s, „ALEK STANIO” 8% na 0,75 s. Napis na środku ekranu (element `.egg` w `body`, z-index 90, bez dotyku), lekko przyciemnione tło, iskry rozchodzące się od środka; styl liter losowany: opalizujący (`egg-myth`), karmazynowy żar (`egg-ember`), złoty blask (`egg-gold`). Przy `prefers-reduced-motion` napis jest statyczny, bez iskier.
+- v0.27.1: STOPY wyświetlane 0,36 s. SW `bothanzi-v36` (v0.27: v35).
 
 ## Zmiany w v0.26 (bardzo trudne)
 - **Bardzo trudne** (`state.vhard`, podzbiór `state.hard`): oznaczane przyciskiem „Bardzo trudny” w karcie znaku (`toggle-vhard`, `setVHard`; dodanie oznacza też jako trudny) albo automatycznie po 3 błędach z rzędu (`VHARD_RUN`, licznik `state.missRun`, liczony w `grade()` we wszystkich ćwiczeniach z oceną; dobra odpowiedź zeruje licznik, komunikat „X jest teraz bardzo trudny”). Usunięcie z trudnych zdejmuje też „bardzo trudny”. Synchronizacja: suma, ograniczona do trudnych.

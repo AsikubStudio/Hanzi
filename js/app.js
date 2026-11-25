@@ -241,10 +241,40 @@ function closeSheet() {
   sheetEl.addEventListener('touchcancel', end);
 }
 
-function openChar(h) {
+// Automatyczne czytanie przy pierwszym odkryciu (karta znaku, słowa, fiszka, wynik pytania). Bez komunikatów:
+// brak głosu zgłasza dopiero ręczne dotknięcie głośnika.
+const sayOnce = (text) => { if (canSpeak && text) speak(text); };
+
+// ——— Niespodzianki (tylko profil Asia): przy odkryciu odpowiedzi w fiszkach i quizach, raz na kartę ———
+// STOPY 3,5% na 0,36 s, ALEK STANIO 8% na 0,75 s; styl liter losowany (opalizujący, karmazynowy żar, złoty blask).
+const EGGS = [
+  { p: 0.035, text: 'STOPY', ms: 360, cls: 'egg-s' },
+  { p: 0.08, text: 'ALEK<br>STANIO', ms: 750, cls: 'egg-a' },
+];
+const EGG_STYLES = ['egg-myth', 'egg-ember', 'egg-gold'];
+function maybeEgg() {
+  if (currentId() !== 'asia') return;
+  let r = Math.random();
+  const egg = EGGS.find((e) => (r -= e.p) < 0);
+  if (!egg) return;
+  const el = document.createElement('div');
+  const sp = Array.from({ length: 10 }, (_, i) => {
+    const a = (i / 10) * Math.PI * 2, d = 90 + ((i * 37) % 50);
+    return `<i style="--x:${Math.round(Math.cos(a) * d)}px;--y:${Math.round(Math.sin(a) * d)}px"></i>`;
+  }).join('');
+  el.className = `egg ${egg.cls} ${EGG_STYLES[Math.floor(Math.random() * EGG_STYLES.length)]}`;
+  el.style.setProperty('--d', `${egg.ms}ms`);
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = `<span>${egg.text}</span>${sp}`;
+  document.body.append(el);
+  setTimeout(() => el.remove(), egg.ms + 50);
+}
+
+function openChar(h, say = false) {
   const c = BY_HANZI.get(h);
   if (!c) return;
   openSheet(sheetView(c));
+  if (say) sayOnce(h);
   const box = sheetEl.querySelector('.stroke-box');
   if (box) {
     mountStrokes(box, h).then((ok) => {
@@ -397,7 +427,11 @@ function bindCard() {
   if (!card) return;
   let sx = 0, sy = 0, dx = 0, dy = 0, drag = false, moved = false;
 
-  const flip = () => { S.flipped = !S.flipped; card.classList.toggle('is-flipped', S.flipped); };
+  const flip = () => {
+    S.flipped = !S.flipped;
+    card.classList.toggle('is-flipped', S.flipped);
+    if (S.flipped && S.said !== S.i) { S.said = S.i; sayOnce(S.deck[S.i].hanzi); maybeEgg(); } // tylko przy pierwszym odkryciu karty
+  };
   const reset = () => {
     card.style.transform = '';
     card.dataset.dir = '';
@@ -489,6 +523,7 @@ function listenPick(i) {
   Q.step = 'result';
   clockTick();
   drawListen();
+  maybeEgg();
 }
 
 // ——— Napisz znak ———
@@ -520,6 +555,8 @@ async function writeCheck() {
   Q.step = 'result';
   clockTick();
   drawWrite();
+  sayOnce(c.hanzi);
+  maybeEgg();
 }
 
 function writeGiveUp() {
@@ -528,6 +565,8 @@ function writeGiveUp() {
   Q.step = 'result';
   clockTick();
   drawWrite();
+  sayOnce(Q.last.item.hanzi);
+  maybeEgg();
 }
 
 function writeVerdict(ok) {
@@ -559,6 +598,8 @@ function quizCheck() {
   Q.step = 'result';
   clockTick();
   drawQuiz();
+  sayOnce(c.hanzi);
+  maybeEgg();
 }
 
 function quizNext() {
@@ -599,8 +640,8 @@ const afterToggle = (h, msg) => {
 };
 
 const ACTIONS = {
-  open: (el) => openChar(el.dataset.h),
-  'open-word': (el) => { const x = BY_WORD.get(el.dataset.w); if (x) openSheet(wordSheetView(x)); },
+  open: (el) => openChar(el.dataset.h, true),
+  'open-word': (el) => { const x = BY_WORD.get(el.dataset.w); if (x) { openSheet(wordSheetView(x)); sayOnce(x.w); } },
   'close-sheet': closeSheet,
   theme: openThemes,
   'set-theme': pickTheme,

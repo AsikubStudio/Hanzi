@@ -819,3 +819,28 @@ body.in-picker { overflow: hidden; }
 /* Dwa przyciski ćwiczenia obok siebie w równych kolumnach (także na wąskim telefonie). */
 .btn-row:has(.vh-btn) { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .btn-row:has(.vh-btn) .btn { padding-inline: 8px; font-size: .9rem; min-width: 0; white-space: nowrap; }
+
+/* ——— v0.27: niespodzianki (profil Asia): świecący napis na środku ekranu, lekko przyciemnione tło ——— */
+.egg {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; pointer-events: none; text-align: center;
+  background: radial-gradient(circle, rgba(0, 0, 0, .45), rgba(0, 0, 0, .12) 70%); opacity: 0;
+  animation: egg-dim var(--d) ease forwards;
+}
+.egg span { display: block; font: 900 clamp(2.6rem, 13vw, 4.4rem)/1.02 var(--sans); letter-spacing: .04em; transform: rotate(-7deg); animation: egg-pop var(--d) cubic-bezier(.2, .9, .2, 1) forwards; }
+.egg-s span { font-size: clamp(3.6rem, 20vw, 6.4rem); }
+@keyframes egg-dim { 0% { opacity: 0; } 15%, 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes egg-pop { 0% { transform: rotate(-7deg) scale(.55); } 14% { transform: rotate(-7deg) scale(1.08); } 24% { transform: rotate(-7deg) scale(1); } 100% { transform: rotate(-7deg) scale(1.05); } }
+.egg-myth span {
+  background: linear-gradient(120deg, #f0829a, #d9b36c 35%, #9fe1cb 65%, #b5a9ec); background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 8px rgba(217, 179, 108, .85)) drop-shadow(0 0 18px rgba(240, 130, 154, .5));
+  animation: egg-pop var(--d) cubic-bezier(.2, .9, .2, 1) forwards, egg-shine .8s linear infinite;
+}
+@keyframes egg-shine { to { background-position: 200% 0; } }
+.egg-ember span { color: #ff4d5e; text-shadow: 0 0 6px #ff4d5e, 0 0 16px rgba(214, 32, 58, .95), 0 0 34px rgba(155, 15, 36, .85), 0 2px 0 #5a0f1c; }
+.egg-gold span { color: #ffe7a8; -webkit-text-stroke: 1px #b08a3e; text-shadow: 0 0 6px #ffd27a, 0 0 18px rgba(217, 179, 108, .95), 0 0 38px rgba(217, 179, 108, .6), 0 2px 0 #6b4a12; }
+.egg i { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; border-radius: 50%; opacity: 0; animation: egg-spark var(--d) ease-out forwards; }
+.egg-myth i, .egg-gold i { background: #fff6d8; box-shadow: 0 0 6px 2px #d9b36c; }
+.egg-ember i { background: #ff8a8a; box-shadow: 0 0 6px 2px #9b0f24; }
+@keyframes egg-spark { 0% { opacity: 0; transform: translate(0, 0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--x), var(--y)); } }
+@media (prefers-reduced-motion: reduce) { .egg i { display: none; } .egg, .egg span { animation: none !important; opacity: 1; } }
